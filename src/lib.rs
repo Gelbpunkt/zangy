@@ -69,34 +69,30 @@ impl Reader {
             return Ok(false.to_object(py));
         }
         let result = self.__reader.decode(&mut self.__buffer);
-        if !result.is_ok() {
-            match result.err() {
-                Some(x) => match x {
-                    resp::RESPError::UnexpectedEnd => return Ok(false.to_object(py)),
-                    resp::RESPError::UnknownStartingByte => {
-                        return Err(ProtocolError::py_err("unknown starting byte"))
-                    }
-                    resp::RESPError::BadArraySize(x) => {
-                        return Err(ProtocolError::py_err(format!("bad array size: {}", x)))
-                    }
-                    resp::RESPError::BadBulkStringSize(x) => {
-                        return Err(ProtocolError::py_err(format!(
-                            "bad bulk string size: {}",
-                            x
-                        )))
-                    }
-                    resp::RESPError::IntParseFailure => {
-                        return Err(ProtocolError::py_err("integer parsing failed"))
-                    }
-                    resp::RESPError::IOError(_) => return Err(ProtocolError::py_err("io error")),
-                },
-                None => panic!("should not happen"),
-            }
-        }
-        let fin = result.unwrap();
-        match fin {
-            Some(x) => convert_to_usable(py, x),
-            None => Ok(py.None()),
+        match result {
+            Err(x) => match x {
+                resp::RESPError::UnexpectedEnd => return Ok(false.to_object(py)),
+                resp::RESPError::UnknownStartingByte => {
+                    return Err(ProtocolError::py_err("unknown starting byte"))
+                }
+                resp::RESPError::BadArraySize(x) => {
+                    return Err(ProtocolError::py_err(format!("bad array size: {}", x)))
+                }
+                resp::RESPError::BadBulkStringSize(x) => {
+                    return Err(ProtocolError::py_err(format!(
+                        "bad bulk string size: {}",
+                        x
+                    )))
+                }
+                resp::RESPError::IntParseFailure => {
+                    return Err(ProtocolError::py_err("integer parsing failed"))
+                }
+                resp::RESPError::IOError(_) => return Err(ProtocolError::py_err("io error")),
+            },
+            Ok(x) => match x {
+                Some(x) => convert_to_usable(py, x),
+                None => Ok(py.None()),
+            },
         }
     }
 }
