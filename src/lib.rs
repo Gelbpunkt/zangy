@@ -17,7 +17,9 @@ struct Reader {
 
 fn convert_to_usable(py: Python, thing: resp::RedisValueRef) -> PyResult<PyObject> {
     match thing {
-        resp::RedisValueRef::Error(_e) => return Err(RedisError::py_err("")),
+        resp::RedisValueRef::Error(e) => {
+            return Err(RedisError::py_err(String::from_utf8(e.to_vec()).unwrap()))
+        }
         resp::RedisValueRef::ErrorMsg(e) => {
             return Err(RedisError::py_err(String::from_utf8(e).unwrap()))
         }
