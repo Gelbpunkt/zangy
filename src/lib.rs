@@ -7,8 +7,6 @@ use std::mem;
 
 mod resp;
 
-create_exception!(zangy, RedisError, pyo3::exceptions::Exception);
-
 #[pyclass]
 struct Reader {
     __buffer: BytesMut,
@@ -57,7 +55,7 @@ impl PySequenceProtocol for Reader {
 #[pymodule]
 fn zangy(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Reader>()?;
-    m.add("RedisError", py.get_type::<RedisError>())?;
+    m.add("RedisError", py.get_type::<resp::RedisError>())?;
     m.add("ProtocolError", py.get_type::<resp::ProtocolError>())?;
 
     Ok(())
