@@ -10,7 +10,7 @@ stringBuffer = b"+testing a simple string\r\n"
 integerBuffer = b":1237884\r\n"
 bigIntegerBuffer = b":184467440737095516171234567890\r\n"
 errorBuffer = b"-Error ohnoesitbroke\r\n"
-endBuffer = b"\r\n"
+endBuffer = b"\r"
 lorem = (
     b"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor"
     b" incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis"
@@ -21,7 +21,7 @@ loremSplit = lorem.split()
 bigStringArray = [loremSplit[i % len(loremSplit)] for i in range(2 ** 16)]
 startBigBuffer = b"$" + str(4 * 1024 * 1024).encode() + b"\r\n"
 
-chunks = [b" ".join(bigStringArray) + b"." for _ in range(64)]
+chunks = [b" ".join(bigStringArray)[:4096] for _ in range(1024)]
 
 arraySize = 100
 arrayBuffer = b"*" + str(arraySize).encode() + b"\r\n"
@@ -94,7 +94,7 @@ def four_mb_bulk_string():
     parserBuffer.feed(startBigBuffer)
     for i in chunks:
         parserBuffer.feed(i)
-    parserBuffer.feed(endBuffer)
+    parserBuffer.feed(endBuffer + b"\n")
     parserBuffer.gets()
 
 
@@ -125,7 +125,6 @@ suite.add("PY PARSER BUF: : integer", integers)
 
 def big_integer():
     parserBuffer.feed(bigIntegerBuffer)
-    print(parserBuffer.get_buffer())
     parserBuffer.gets()
 
 

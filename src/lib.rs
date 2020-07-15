@@ -52,7 +52,7 @@ impl Reader {
     fn new() -> Self {
         Reader {
             __reader: resp::RespParser::default(),
-            __buffer: BytesMut::new(),
+            __buffer: BytesMut::with_capacity(16384),
         }
     }
 
@@ -75,7 +75,6 @@ impl Reader {
             return Ok(false.to_object(py));
         }
         let result = self.__reader.decode(&mut self.__buffer);
-        self.__buffer.clear();
         match result {
             Err(x) => match x {
                 resp::RESPError::UnexpectedEnd => return Ok(false.to_object(py)),
