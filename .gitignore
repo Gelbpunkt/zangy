@@ -12,3 +12,6 @@ benchmark_*.svg
 vendor
 build
 !json/perfect_float.patch
+node_modules
+package-lock.json
+package.json

@@ -61,6 +61,12 @@ impl Reader {
         Ok(())
     }
 
+    fn get_buffer(&self) -> PyResult<PyObject> {
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+        Ok(PyBytes::new(py, &self.__buffer).to_object(py))
+    }
+
     fn gets(&mut self) -> PyResult<PyObject> {
         let gil = Python::acquire_gil();
         let py = gil.python();
@@ -69,6 +75,7 @@ impl Reader {
             return Ok(false.to_object(py));
         }
         let result = self.__reader.decode(&mut self.__buffer);
+        self.__buffer.clear();
         match result {
             Err(x) => match x {
                 resp::RESPError::UnexpectedEnd => return Ok(false.to_object(py)),
