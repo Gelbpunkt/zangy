@@ -1,291 +1,170 @@
-// https://github.com/dpbriggs/redis-oxide/blob/master/src/asyncresp.rs
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, Bytes};
 use memchr::memchr;
-use std::convert::From;
-use std::io;
+use pyo3::create_exception;
+use pyo3::prelude::*;
+use pyo3::types::PyBytes;
 use std::str;
 
-/// These types are used by state and ops to actually perform useful work.
-pub type Value = Vec<u8>;
-/// Key is the standard type to index our structures
-pub type Key = Vec<u8>;
+create_exception!(zangy, ProtocolError, pyo3::exceptions::Exception);
+create_exception!(zangy, RedisError, pyo3::exceptions::Exception);
 
-pub const NULL_ARRAY: &str = "*-1\r\n";
-pub const NULL_BULK_STRING: &str = "$-1\r\n";
-
-/// RedisValueRef is the canonical type for values flowing
-/// through the system. Inputs are converted into RedisValues,
-/// and outputs are converted into RedisValues.
-#[derive(PartialEq, Clone)]
-pub enum RedisValueRef {
-    BulkString(Bytes),
-    SimpleString(Bytes),
-    Error(Bytes),
-    ErrorMsg(Vec<u8>),
-    Int(i64),
-    Array(Vec<RedisValueRef>),
-    NullArray,
-    NullBulkString,
-}
-
-impl std::fmt::Debug for RedisValueRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RedisValueRef::BulkString(s) => write!(
-                f,
-                "RedisValueRef::BulkString({:?})",
-                String::from_utf8_lossy(s)
-            ),
-            RedisValueRef::SimpleString(s) => write!(
-                f,
-                "RedisValueRef::SimpleString({:?})",
-                String::from_utf8_lossy(s)
-            ),
-            RedisValueRef::Error(s) => {
-                write!(f, "RedisValueRef::Error({:?})", String::from_utf8_lossy(s))
-            }
-            RedisValueRef::ErrorMsg(s) => write!(f, "RedisValueRef::ErrorMsg({:?})", s),
-
-            RedisValueRef::Int(i) => write!(f, "RedisValueRef::Int({:?})", i),
-            RedisValueRef::NullBulkString => write!(f, "RedisValueRef::NullBulkString"),
-            RedisValueRef::NullArray => write!(f, "RedisValueRef::NullArray"),
-            RedisValueRef::Array(arr) => {
-                write!(f, "RedisValueRef::Array(")?;
-                for item in arr {
-                    write!(f, "{:?}", item)?;
-                    write!(f, ",")?;
-                }
-                write!(f, ")")?;
-                Ok(())
-            }
-        }
-    }
-}
-
-/// Fundamental struct for viewing byte slices
-///
-/// Used for zero-copy redis values.
-struct BufSplit(usize, usize);
-
-impl BufSplit {
-    /// Get a lifetime appropriate slice of the underlying buffer.
-    ///
-    /// Constant time.
-    #[inline]
-    fn as_slice<'a>(&self, buf: &'a BytesMut) -> &'a [u8] {
-        &buf[self.0..self.1]
-    }
-
-    /// Get a Bytes object representing the appropriate slice
-    /// of bytes.
-    ///
-    /// Constant time.
-    #[inline]
-    fn as_bytes(&self, buf: &Bytes) -> Bytes {
-        buf.slice(self.0..self.1)
-    }
-}
-
-/// BufSplit based equivalent to our output type RedisValueRef
-enum RedisBufSplit {
-    String(BufSplit),
-    Error(BufSplit),
-    Int(i64),
-    Array(Vec<RedisBufSplit>),
-    NullArray,
-    NullBulkString,
-}
-
-impl RedisBufSplit {
-    fn redis_value(self, buf: &Bytes) -> RedisValueRef {
-        match self {
-            RedisBufSplit::String(bfs) => RedisValueRef::BulkString(bfs.as_bytes(buf)),
-            RedisBufSplit::Error(bfs) => RedisValueRef::Error(bfs.as_bytes(buf)),
-            RedisBufSplit::Array(arr) => {
-                RedisValueRef::Array(arr.into_iter().map(|bfs| bfs.redis_value(buf)).collect())
-            }
-            RedisBufSplit::NullArray => RedisValueRef::NullArray,
-            RedisBufSplit::NullBulkString => RedisValueRef::NullBulkString,
-            RedisBufSplit::Int(i) => RedisValueRef::Int(i),
-        }
-    }
+#[derive(Debug)]
+struct RustRedisError {
+    error_message: String,
 }
 
 #[derive(Debug)]
-pub enum RESPError {
-    UnexpectedEnd,
-    UnknownStartingByte,
-    IOError(std::io::Error),
-    IntParseFailure,
-    BadBulkStringSize(i64),
-    BadArraySize(i64),
+pub enum RedisType {
+    SimpleString(Bytes),
+    Error(RustRedisError),
+    Integer(i64),
+    BulkString(Option<Bytes>),
+    Array(Option<Vec<RedisType>>),
+    ParserError(String),
 }
 
-impl From<std::io::Error> for RESPError {
-    fn from(e: std::io::Error) -> RESPError {
-        RESPError::IOError(e)
+const NULL_BULK_STRING: &[u8] = b"$-1\r\n";
+const EMPTY_ARRAY: &[u8] = b"*0\r\n";
+const NULL_ARRAY: &[u8] = b"*-1\r\n";
+
+fn parse_simple_string(data: Bytes) -> Bytes {
+    // Simple Strings are encoded in the following way:
+    // a plus character, followed by a string that cannot contain a CR or LF character (no newlines are allowed),
+    // terminated by CRLF (that is "\r\n").
+    //
+    // b"+OK\r\n" -> b"OK"
+    data.slice(1..data.len() - 2)
+}
+
+fn parse_error(data: Bytes) -> String {
+    // RESP has a specific data type for errors.
+    // Actually errors are exactly like RESP Simple Strings,
+    // but the first character is a minus '-' character instead of a plus.
+    // The real difference between Simple Strings and Errors in RESP is that errors
+    // are treated by clients as exceptions, and the string that composes the Error type is the error message itself.
+    //
+    // b"-Error message\r\n" -> RedisError { error_message: "Error message" }
+    let message = parse_simple_string(data);
+    String::from_utf8(message.to_vec()).unwrap_or("".to_string())
+}
+
+fn parse_integer(data: Bytes) -> i64 {
+    // This type is just a CRLF terminated string representing an integer,
+    // prefixed by a ":" byte. For example ":0\r\n", or ":1000\r\n" are integer replies.
+    //
+    // b":1581958\r\n" -> 1581958_i64
+    let parsed_string = parse_simple_string(data);
+    let int_string = str::from_utf8(&parsed_string).unwrap();
+    int_string.parse::<i64>().unwrap()
+}
+
+fn parse_bulk_string(data: Bytes) -> Option<Bytes> {
+    // Bulk Strings are used in order to represent a single binary safe string up to 512 MB in length.
+    // Bulk Strings are encoded in the following way:
+    // A "$" byte followed by the number of bytes composing the string (a prefixed length), terminated by CRLF.
+    // The actual string data.
+    // A final CRLF.
+    // So the string "foobar" is encoded as follows:
+    // "$6\r\nfoobar\r\n"
+    // When an empty string is just:
+    // "$0\r\n\r\n"
+    // RESP Bulk Strings can also be used in order to signal non-existence of a value
+    // using a special format that is used to represent a Null value. In this special format the length is -1,
+    // and there is no data, so a Null is represented as:
+    // "$-1\r\n"
+    if data == NULL_BULK_STRING {
+        None
+    } else {
+        let first_nl = memchr(b'\n', &data).unwrap();
+        let actual_str = data.slice(first_nl + 1..data.len() - 2);
+        Some(actual_str)
     }
 }
 
-type RedisResult = Result<Option<(usize, RedisBufSplit)>, RESPError>;
-
-#[inline]
-fn word(buf: &BytesMut, pos: usize) -> Option<(usize, BufSplit)> {
-    if buf.len() <= pos {
-        return None;
-    }
-    memchr(b'\r', &buf[pos..]).and_then(|end| {
-        if end + 1 < buf.len() {
-            Some((pos + end + 2, BufSplit(pos, pos + end)))
-        } else {
-            None
+fn parse_array_rust(mut data: Bytes) -> Option<Vec<RedisType>> {
+    // Arrays are starting with a *, follow by the number of elements and those
+    // on seperate lines
+    // Empty array: "*0\r\n"
+    // Two strings: "*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
+    // We could use an array but ignoring the length should be faster
+    //
+    // The current impl is not ideal
+    // *2\r\n:1234\r\n5678\r\n gets parsed properly to [1234, 5678]
+    // but anything with \r\n in the actual element does not work
+    // should probably get all until \n[+|-|:|$|*] instead of the next \n
+    if data == EMPTY_ARRAY {
+        Some(Vec::new())
+    } else if data == NULL_ARRAY {
+        None
+    } else {
+        let mut res = Vec::new();
+        let first_nl = memchr(b'\n', &data).unwrap();
+        // Remove beginning
+        data.advance(first_nl + 1);
+        while let Some(next_nl) = memchr(b'\n', &data) {
+            let element = data.split_to(next_nl + 1);
+            let new_element = parse(element);
+            res.push(new_element);
         }
-    })
-}
-
-fn int(buf: &BytesMut, pos: usize) -> Result<Option<(usize, i64)>, RESPError> {
-    match word(buf, pos) {
-        Some((pos, word)) => {
-            let s = str::from_utf8(word.as_slice(buf)).map_err(|_| RESPError::IntParseFailure)?;
-            let i = s.parse().map_err(|_| RESPError::IntParseFailure)?;
-            Ok(Some((pos, i)))
-        }
-        None => Ok(None),
-    }
-}
-
-fn bulk_string(buf: &BytesMut, pos: usize) -> RedisResult {
-    match int(buf, pos)? {
-        Some((pos, -1)) => Ok(Some((pos, RedisBufSplit::NullBulkString))),
-        Some((pos, size)) if size >= 0 => {
-            let total_size = pos + size as usize;
-            if buf.len() < total_size + 2 {
-                Ok(None)
-            } else {
-                let bb = RedisBufSplit::String(BufSplit(pos, total_size));
-                Ok(Some((total_size + 2, bb)))
-            }
-        }
-        Some((_pos, bad_size)) => Err(RESPError::BadBulkStringSize(bad_size)),
-        None => Ok(None),
+        Some(res)
     }
 }
 
-fn simple_string(buf: &BytesMut, pos: usize) -> RedisResult {
-    Ok(word(buf, pos).map(|(pos, word)| (pos, RedisBufSplit::String(word))))
-}
-
-fn error(buf: &BytesMut, pos: usize) -> RedisResult {
-    Ok(word(buf, pos).map(|(pos, word)| (pos, RedisBufSplit::Error(word))))
-}
-
-fn resp_int(buf: &BytesMut, pos: usize) -> RedisResult {
-    Ok(int(buf, pos)?.map(|(pos, int)| (pos, RedisBufSplit::Int(int))))
-}
-
-fn array(buf: &BytesMut, pos: usize) -> RedisResult {
-    match int(buf, pos)? {
-        None => Ok(None),
-        Some((pos, -1)) => Ok(Some((pos, RedisBufSplit::NullArray))),
-        Some((pos, num_elements)) if num_elements >= 0 => {
-            let mut values = Vec::with_capacity(num_elements as usize);
-            let mut curr_pos = pos;
-            for _ in 0..num_elements {
-                match parse(buf, curr_pos)? {
-                    Some((new_pos, value)) => {
-                        curr_pos = new_pos;
-                        values.push(value);
-                    }
-                    None => return Ok(None),
-                }
-            }
-            Ok(Some((curr_pos, RedisBufSplit::Array(values))))
+fn parse_array_py(mut data: Bytes, py: Python) -> Option<Vec<PyObject>> {
+    // Arrays are starting with a *, follow by the number of elements and those
+    // on seperate lines
+    // Empty array: "*0\r\n"
+    // Two strings: "*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
+    // We could use an array but ignoring the length should be faster
+    //
+    // The current impl is not ideal
+    // *2\r\n:1234\r\n5678\r\n gets parsed properly to [1234, 5678]
+    // but anything with \r\n in the actual element does not work
+    // should probably get all until \n[+|-|:|$|*] instead of the next \n
+    if data == EMPTY_ARRAY {
+        Some(Vec::new())
+    } else if data == NULL_ARRAY {
+        None
+    } else {
+        let mut res = Vec::new();
+        let first_nl = memchr(b'\n', &data).unwrap();
+        // Remove beginning
+        data.advance(first_nl + 1);
+        while let Some(next_nl) = memchr(b'\n', &data) {
+            let element = data.split_to(next_nl + 1);
+            let new_element = parse_py(element, py).unwrap();
+            res.push(new_element);
         }
-        Some((_pos, bad_num_elements)) => Err(RESPError::BadArraySize(bad_num_elements)),
+        Some(res)
     }
 }
 
-fn parse(buf: &BytesMut, pos: usize) -> RedisResult {
-    if buf.is_empty() {
-        return Ok(None);
-    }
-
-    match buf[pos] {
-        b'+' => simple_string(buf, pos + 1),
-        b'-' => error(buf, pos + 1),
-        b'$' => bulk_string(buf, pos + 1),
-        b':' => resp_int(buf, pos + 1),
-        b'*' => array(buf, pos + 1),
-        _ => Err(RESPError::UnknownStartingByte),
+pub fn parse(data: Bytes) -> RedisType {
+    match data[0] {
+        b'+' => RedisType::SimpleString(parse_simple_string(data)),
+        b'-' => RedisType::Error(RustRedisError {
+            error_message: parse_error(data),
+        }),
+        b':' => RedisType::Integer(parse_integer(data)),
+        b'$' => RedisType::BulkString(parse_bulk_string(data)),
+        b'*' => RedisType::Array(parse_array_rust(data)),
+        _ => RedisType::ParserError(String::from("unknown data type")),
     }
 }
 
-/// The struct we're using. We don't need to store anything in the struct.
-/// Later on we can expand this struct for optimization purposes.
-#[derive(Default)]
-pub struct RespParser;
-
-impl RespParser {
-    pub fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<RedisValueRef>, RESPError> {
-        if buf.is_empty() {
-            return Ok(None);
-        }
-
-        match parse(buf, 0)? {
-            Some((pos, value)) => {
-                // We parsed a value! Shave off the bytes so tokio can continue filling the buffer.
-                let our_data = buf.split_to(pos);
-                // Use `redis_value` defined above to get the correct type
-                Ok(Some(value.redis_value(&our_data.freeze())))
-            }
-            None => Ok(None),
-        }
-    }
-
-    pub fn encode(&mut self, item: RedisValueRef, dst: &mut BytesMut) -> io::Result<()> {
-        write_redis_value(item, dst);
-        Ok(())
-    }
-}
-
-fn write_redis_value(item: RedisValueRef, dst: &mut BytesMut) {
-    match item {
-        RedisValueRef::Error(e) => {
-            dst.extend_from_slice(b"-");
-            dst.extend_from_slice(&e);
-            dst.extend_from_slice(b"\r\n");
-        }
-        RedisValueRef::ErrorMsg(e) => {
-            dst.extend_from_slice(b"-");
-            dst.extend_from_slice(&e);
-            dst.extend_from_slice(b"\r\n");
-        }
-        RedisValueRef::SimpleString(s) => {
-            dst.extend_from_slice(b"+");
-            dst.extend_from_slice(&s);
-            dst.extend_from_slice(b"\r\n");
-        }
-        RedisValueRef::BulkString(s) => {
-            dst.extend_from_slice(b"$");
-            dst.extend_from_slice(s.len().to_string().as_bytes());
-            dst.extend_from_slice(b"\r\n");
-            dst.extend_from_slice(&s);
-            dst.extend_from_slice(b"\r\n");
-        }
-        RedisValueRef::Array(array) => {
-            dst.extend_from_slice(b"*");
-            dst.extend_from_slice(array.len().to_string().as_bytes());
-            dst.extend_from_slice(b"\r\n");
-            for redis_value in array {
-                write_redis_value(redis_value, dst);
-            }
-        }
-        RedisValueRef::Int(i) => {
-            dst.extend_from_slice(b":");
-            dst.extend_from_slice(i.to_string().as_bytes());
-            dst.extend_from_slice(b"\r\n");
-        }
-        RedisValueRef::NullArray => dst.extend_from_slice(NULL_ARRAY.as_bytes()),
-        RedisValueRef::NullBulkString => dst.extend_from_slice(NULL_BULK_STRING.as_bytes()),
+pub fn parse_py(data: Bytes, py: Python) -> PyResult<PyObject> {
+    match data[0] {
+        b'+' => Ok(PyBytes::new(py, &parse_simple_string(data)).to_object(py)),
+        b'-' => Err(RedisError::py_err(parse_error(data))),
+        b':' => Ok(parse_integer(data).to_object(py)),
+        b'$' => match parse_bulk_string(data) {
+            Some(bytes) => Ok(PyBytes::new(py, &bytes).to_object(py)),
+            None => Ok(py.None()),
+        },
+        b'*' => match parse_array_py(data, py) {
+            Some(arr) => Ok(arr.to_object(py)),
+            None => Ok(py.None()),
+        },
+        _ => Err(ProtocolError::py_err("unknown data type")),
     }
 }

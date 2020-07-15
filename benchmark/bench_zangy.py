@@ -7,7 +7,7 @@ startBuffer = b"$100\r\nabcdefghij'"
 chunkBuffer = b"abcdefghijabcdefghijabcdefghij"
 stringBuffer = b"+testing a simple string\r\n"
 integerBuffer = b":1237884\r\n"
-bigIntegerBuffer = b":184467440737095516171234567890\r\n"
+bigIntegerBuffer = b":18446744073709\r\n"
 errorBuffer = b"-Error ohnoesitbroke\r\n"
 endBuffer = b"\r"
 lorem = (
@@ -124,7 +124,6 @@ suite.add("PY PARSER BUF: : integer", integers)
 
 def big_integer():
     parserBuffer.feed(bigIntegerBuffer)
-    print(parserBuffer.get_buffer())
     parserBuffer.gets()
 
 
