@@ -1,8 +1,7 @@
 use nom::{
-    branch::alt,
     bytes::complete::{escaped, is_not, tag},
     character::complete::{alphanumeric1 as alphanumeric, char, one_of},
-    combinator::{cut, map},
+    combinator::cut,
     error::{context, ContextError, ParseError},
     number::complete::be_i64,
     sequence::{preceded, terminated},
