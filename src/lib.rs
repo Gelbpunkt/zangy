@@ -72,9 +72,12 @@ impl Reader {
     fn gets(&mut self) -> PyResult<PyObject> {
         let gil = Python::acquire_gil();
         let py = gil.python();
+        if self.__buffer.len() == 0 {
+            return Ok(false.to_object(py));
+        }
         let result = parser::parse::<VerboseError<&[u8]>>(&self.__buffer);
         match result {
-            Ok(v) => Ok(v.to_object(py)),
+            Ok(v) => Ok(v.1.to_object(py)),
             Err(e) => Err(ProtocolError::py_err(format_verbose_error(e))),
         }
     }
