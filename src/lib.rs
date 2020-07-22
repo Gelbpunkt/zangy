@@ -82,7 +82,10 @@ impl Reader {
         match result {
             Ok(v) => {
                 self.__buffer = BytesMut::from(v.0);
-                Ok(v.1.to_object(py))
+                match v.1 {
+                    parser::RedisType::Error(t) => Err(RedisError::py_err(t)),
+                    _ => Ok(v.1.to_object(py)),
+                }
             }
             Err(e) => Err(ProtocolError::py_err(format_verbose_error(e))),
         }

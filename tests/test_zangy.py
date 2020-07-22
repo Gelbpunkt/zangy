@@ -12,6 +12,11 @@ def test_reader_feed_simple_str():
     r.feed(b"+HELLO WORLD\r\n")
     assert r.gets() == "HELLO WORLD"
 
+def test_remains():
+    r = Reader()
+    r.feed(b"$5\r\nhello\r\n$5\r\nworld\r\n")
+    assert r.gets() == "hello"
+    assert r.gets() == "world"
 
 def test_reader_feed_str():
     r = Reader()

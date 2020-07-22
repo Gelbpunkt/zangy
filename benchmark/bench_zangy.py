@@ -9,7 +9,7 @@ stringBuffer = b"+testing a simple string\r\n"
 integerBuffer = b":1237884\r\n"
 bigIntegerBuffer = b":18446744073709\r\n"
 errorBuffer = b"-Error ohnoesitbroke\r\n"
-endBuffer = b"\r"
+endBuffer = b"\r\n"
 lorem = (
     b"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor"
     b" incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis"
@@ -93,7 +93,7 @@ def four_mb_bulk_string():
     parserBuffer.feed(startBigBuffer)
     for i in chunks:
         parserBuffer.feed(i)
-    parserBuffer.feed(endBuffer + b"\n")
+    parserBuffer.feed(endBuffer)
     parserBuffer.gets()
 
 
