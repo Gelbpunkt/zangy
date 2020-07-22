@@ -59,7 +59,7 @@ fn int<'a, E: ParseError<&'a [u8]> + ContextError<&'a [u8]>>(
 fn bulk_string<'a, E: ParseError<&'a [u8]> + ContextError<&'a [u8]>>(
     i: &'a [u8],
 ) -> IResult<&'a [u8], &'a [u8], E> {
-    let (i, _) = tag("$")(i)?;
+    let (i, _) = char('$')(i)?;
     let (i, _num_bytes) = be_i64(i)?;
     let (i, _) = tag("\r\n")(i)?;
     context("bulkstring", cut(terminated(is_not("\r\n"), tag("\r\n"))))(i)
@@ -69,7 +69,7 @@ fn bulk_string<'a, E: ParseError<&'a [u8]> + ContextError<&'a [u8]>>(
 fn array<'a, E: ParseError<&'a [u8]> + ContextError<&'a [u8]>>(
     i: &'a [u8],
 ) -> IResult<&'a [u8], Vec<RedisType>, E> {
-    let (i, _) = tag("*")(i)?;
+    let (i, _) = char('*')(i)?;
     let (mut i, mut num_elements) = be_i64(i)?;
     let mut types = Vec::new();
     while num_elements > 0 {
