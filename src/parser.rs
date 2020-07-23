@@ -5,11 +5,10 @@ use nom::{
         is_digit,
     },
     combinator::cut,
-    error::{context, ContextError, ErrorKind, ParseError},
+    error::{context, ContextError, ParseError},
     sequence::{preceded, terminated},
     Err, IResult,
 };
-use std::convert::TryInto;
 
 // A generic Redis datatype
 #[derive(Debug, PartialEq)]
@@ -22,19 +21,6 @@ pub enum RedisType {
     NullBulkString,
     NullArray,
 }
-
-// nom's take only works with usizes
-//fn take<'a, E: ParseError<&'a [u8]>>(
-//    count: i64,
-//) -> impl Fn(&'a [u8]) -> IResult<&'a [u8], &'a [u8], E> {
-//    move |i| {
-//        if count > i.len().try_into().unwrap() {
-//            Err(Err::Error(ParseError::from_error_kind(i, ErrorKind::Eof)))
-//        } else {
-//            Ok(i[..count], i[count..])
-//        }
-//    }
-//}
 
 // Parses an integer
 fn parse_int<'a, E: ParseError<&'a [u8]>>(i: &'a [u8]) -> IResult<&'a [u8], i64, E> {
@@ -84,7 +70,7 @@ fn bulk_string<'a, E: ParseError<&'a [u8]> + ContextError<&'a [u8]>>(
     i: &'a [u8],
 ) -> IResult<&'a [u8], &'a [u8], E> {
     let (i, _) = char('$')(i)?;
-    let (i, num_bytes) = parse_int(i)?;
+    let (i, _num_bytes) = parse_int(i)?;
     let (i, _) = crlf(i)?;
     context("bulkstring", cut(terminated(take_until("\r\n"), crlf)))(i)
 }
