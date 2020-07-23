@@ -3,7 +3,7 @@ from random import randint
 from benchmark import Suite
 from zangy import Reader
 
-startBuffer = b"$100\r\nabcdefghij'"
+startBuffer = b"$100\r\nabcdefghij"
 chunkBuffer = b"abcdefghijabcdefghijabcdefghij"
 stringBuffer = b"+testing a simple string\r\n"
 integerBuffer = b":1237884\r\n"

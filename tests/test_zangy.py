@@ -10,32 +10,32 @@ def test_reader_init_works():
 def test_reader_feed_simple_str():
     r = Reader()
     r.feed(b"+HELLO WORLD\r\n")
-    assert r.gets() == "HELLO WORLD"
+    assert r.gets() == b"HELLO WORLD"
 
 def test_remains():
     r = Reader()
     r.feed(b"$5\r\nhello\r\n$5\r\nworld\r\n")
-    assert r.gets() == "hello"
-    assert r.gets() == "world"
+    assert r.gets() == b"hello"
+    assert r.gets() == b"world"
 
 def test_reader_feed_str():
     r = Reader()
     r.feed(b"$5\r\nhello\r\n")
-    assert r.gets() == "hello"
+    assert r.gets() == b"hello"
 
 
 def test_reader_feed_arr():
     r = Reader()
     r.feed(b"*2\r\n$5\r\nhello\r\n")
     r.feed(b"$5\r\nworld\r\n")
-    assert r.gets() == ["hello", "world"]
+    assert r.gets() == [b"hello", b"world"]
 
 
 def test_reader_feed_snowman():
     r = Reader()
     snowman = b"\xe2\x98\x83"
     r.feed(b"$3\r\n" + snowman + b"\r\n")
-    assert r.gets() == "☃"
+    assert r.gets().decode() == "☃"
 
 
 def test_null_multi_bulk():
@@ -53,13 +53,13 @@ def test_empty_multi_bulk():
 def test_multi_bulk():
     r = Reader()
     r.feed(b"*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n")
-    assert r.gets() == ["hello", "world"]
+    assert r.gets() == [b"hello", b"world"]
 
 
 def test_nested_multi_bulk():
     r = Reader()
     r.feed(b"*1\r\n*1\r\n*1\r\n*1\r\n$1\r\n!\r\n")
-    assert r.gets() == [[[["!"]]]]
+    assert r.gets() == [[[[b"!"]]]]
 
 
 def test_reader_feed_error_string():

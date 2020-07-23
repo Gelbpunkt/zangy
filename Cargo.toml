@@ -40,9 +40,9 @@ classifier = [
 
 [dependencies]
 pyo3 = { version = "0.11.1", features = ["extension-module"] }
-nom = "6.0.0-alpha1"
 async-std = "1.6.2"
 bytes = "0.5.6"
+memchr = "2.3.3"
 
 [profile.release]
 codegen-units = 1
