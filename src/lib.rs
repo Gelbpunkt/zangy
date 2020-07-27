@@ -1,21 +1,20 @@
 use pyo3::prelude::{pymodule, PyModule, PyResult, Python};
 
 mod asyncio;
+mod client;
 mod connection;
-mod net;
-mod parser;
-mod reader;
+mod exceptions;
 
 #[pymodule]
 fn zangy(py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<reader::Reader>()?;
     m.add_class::<connection::Connection>()?;
-    m.add("RedisError", py.get_type::<reader::RedisError>())?;
-    m.add("ProtocolError", py.get_type::<reader::ProtocolError>())?;
+    m.add_class::<client::Client>()?;
     m.add(
         "ConnectionError",
-        py.get_type::<connection::ConnectionError>(),
+        py.get_type::<exceptions::ConnectionError>(),
     )?;
+    m.add("ArgumentError", py.get_type::<exceptions::ArgumentError>())?;
+    m.add("RedisError", py.get_type::<exceptions::RedisError>())?;
 
     Ok(())
 }
