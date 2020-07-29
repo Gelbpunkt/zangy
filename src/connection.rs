@@ -1,15 +1,14 @@
 use crate::asyncio::{get_loop, set_fut_exc, set_fut_result};
 use crate::exceptions::{ArgumentError, RedisError};
-use async_std::sync::{Arc, Mutex};
 use async_std::task;
 use pyo3::prelude::{pyclass, pymethods, PyObject, PyResult, Python, ToPyObject};
 use pyo3::types::{PyBytes, PyTuple};
-use redis::aio::Connection as ReConnection;
+use redis::aio::MultiplexedConnection as ReConnection;
 use redis::Value;
 
 #[pyclass]
 pub struct Connection {
-    pub __connection: Arc<Mutex<ReConnection>>,
+    pub __connection: ReConnection,
 }
 
 fn re_to_object(v: &Value, py: Python) -> PyObject {
@@ -55,11 +54,11 @@ impl Connection {
             let fut: PyObject = loop_.call_method0(py, "create_future")?.into();
             (fut.clone_ref(py), fut, loop_.into())
         };
-        let lock = self.__connection.clone();
+        let mut conn = self.__connection.clone();
 
         task::spawn(async move {
             match redis_cmd
-                .query_async::<ReConnection, Value>(&mut *Mutex::lock(&lock).await)
+                .query_async::<ReConnection, Value>(&mut conn)
                 .await
             {
                 Ok(v) => {

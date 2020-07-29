@@ -5,7 +5,6 @@ use async_std::task;
 use pyo3::prelude::{pyclass, pymethods, IntoPy, PyObject, PyResult, Python};
 use pyo3::types::PyString;
 use redis::Client as ReClient;
-use async_std::sync::{Arc, Mutex};
 
 #[pyclass]
 pub struct Client {
@@ -33,14 +32,11 @@ impl Client {
         let client = self.__client.clone();
 
         task::spawn(async move {
-            match client.get_async_std_connection().await {
+            match client.get_multiplexed_async_std_connection().await {
                 Ok(c) => {
                     let gil = Python::acquire_gil();
                     let py = gil.python();
-                    let inst: PyObject = Connection {
-                        __connection: Arc::new(Mutex::new(c)),
-                    }
-                    .into_py(py);
+                    let inst: PyObject = Connection { __connection: c }.into_py(py);
 
                     if let Err(e) = set_fut_result(loop_, fut, inst) {
                         e.print(py);
