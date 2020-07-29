@@ -3,6 +3,7 @@ use pyo3::prelude::{pymodule, PyModule, PyResult, Python};
 mod asyncio;
 mod client;
 mod connection;
+mod conversion;
 mod exceptions;
 
 #[pymodule]

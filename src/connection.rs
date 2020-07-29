@@ -1,29 +1,15 @@
 use crate::asyncio::{get_loop, set_fut_exc, set_fut_result};
+use crate::conversion::{object_to_re, re_to_object, RedisValuePy};
 use crate::exceptions::{ArgumentError, RedisError};
 use async_std::task;
-use pyo3::prelude::{pyclass, pymethods, PyObject, PyResult, Python, ToPyObject};
-use pyo3::types::{PyBytes, PyTuple};
+use pyo3::prelude::{pyclass, pymethods, PyObject, PyResult, Python};
+use pyo3::types::PyTuple;
 use redis::aio::MultiplexedConnection as ReConnection;
 use redis::Value;
 
 #[pyclass]
 pub struct Connection {
     pub __connection: ReConnection,
-}
-
-fn re_to_object(v: &Value, py: Python) -> PyObject {
-    match v {
-        redis::Value::Nil => py.None(),
-        redis::Value::Int(i) => i.to_object(py),
-        redis::Value::Data(d) => PyBytes::new(py, &d).to_object(py),
-        redis::Value::Bulk(b) => b
-            .iter()
-            .map(|i| re_to_object(i, py))
-            .collect::<Vec<PyObject>>()
-            .to_object(py),
-        redis::Value::Status(s) => s.to_object(py),
-        redis::Value::Okay => true.to_object(py),
-    }
 }
 
 #[pymethods]
@@ -34,14 +20,10 @@ impl Connection {
             return Err(ArgumentError::py_err("no arguments provided to execute"));
         }
 
-        // TODO: Only strings possible as arguments right now
-        let new_args: Vec<String> = args
+        let new_args: Vec<RedisValuePy> = args
             .as_slice()
             .iter()
-            .map(|i| {
-                println!("{:?}", i.get_type().name());
-                i.to_string()
-            })
+            .map(|i| object_to_re(i).unwrap())
             .collect();
 
         let mut redis_cmd = redis::Cmd::new();
