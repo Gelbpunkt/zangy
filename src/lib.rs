@@ -5,6 +5,7 @@ mod client;
 mod connection;
 mod conversion;
 mod exceptions;
+mod pool;
 
 #[pymodule]
 fn zangy(py: Python, m: &PyModule) -> PyResult<()> {

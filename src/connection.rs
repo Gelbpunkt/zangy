@@ -1,7 +1,9 @@
 use crate::asyncio::{get_loop, set_fut_exc, set_fut_result};
 use crate::conversion::{object_to_re, re_to_object, RedisValuePy};
 use crate::exceptions::{ArgumentError, RedisError};
+use crate::pool::RedisConnectionManager;
 use async_std::task;
+use bb8::PooledConnection as Bb8PooledConnection;
 use pyo3::prelude::{pyclass, pymethods, PyObject, PyResult, Python};
 use pyo3::types::PyTuple;
 use redis::aio::MultiplexedConnection as ReConnection;
@@ -9,7 +11,12 @@ use redis::Value;
 
 #[pyclass]
 pub struct Connection {
-    pub __connection: ReConnection,
+    __connection: ReConnection,
+}
+
+#[pyclass]
+pub struct PooledConnection {
+    __connection: Bb8PooledConnection<'static, RedisConnectionManager>,
 }
 
 #[pymethods]
