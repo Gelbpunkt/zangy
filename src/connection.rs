@@ -11,11 +11,6 @@ use redis::Value;
 
 #[pyclass]
 pub struct Connection {
-    __connection: ReConnection,
-}
-
-#[pyclass]
-pub struct PooledConnection {
     __connection: Bb8PooledConnection<'static, RedisConnectionManager>,
 }
 

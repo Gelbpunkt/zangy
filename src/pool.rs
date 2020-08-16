@@ -1,5 +1,5 @@
 use crate::asyncio::{get_loop, set_fut_exc, set_fut_result};
-use crate::connection::PooledConnection;
+use crate::connection::Connection;
 use crate::exceptions::ConnectionError;
 use async_std::task;
 use async_trait::async_trait;
@@ -116,7 +116,7 @@ impl ConnectionPool {
                 Ok(c) => {
                     let gil = Python::acquire_gil();
                     let py = gil.python();
-                    let inst: PyObject = PooledConnection { __connection: c }.into_py(py);
+                    let inst: PyObject = Connection { __connection: c }.into_py(py);
 
                     if let Err(e) = set_fut_result(loop_, fut, inst) {
                         e.print(py);
