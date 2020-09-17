@@ -1,12 +1,12 @@
 use crate::asyncio::{get_loop, set_fut_exc, set_fut_result};
 use crate::connection::Connection;
 use crate::exceptions::ConnectionError;
-use async_std::task;
 use async_trait::async_trait;
 use bb8::{ManageConnection, Pool};
 use pyo3::prelude::{pyclass, pymethods, IntoPy, PyObject, PyResult, Python};
 use redis::aio::MultiplexedConnection;
 use redis::{Client, IntoConnectionInfo, RedisError};
+use tokio::task;
 
 /// A `bb8::ManageConnection` for `redis::Client::get_async_connection`.
 #[derive(Clone, Debug)]
@@ -30,7 +30,7 @@ impl ManageConnection for RedisConnectionManager {
     type Error = RedisError;
 
     async fn connect(&self) -> Result<Self::Connection, Self::Error> {
-        self.client.get_multiplexed_async_std_connection().await
+        self.client.get_multiplexed_tokio_connection().await
     }
 
     async fn is_valid(&self, conn: &mut Self::Connection) -> Result<(), Self::Error> {
@@ -49,7 +49,7 @@ pub struct ConnectionPoolManager {
 
 #[pyclass]
 pub struct ConnectionPool {
-    __pool: &'static Pool<RedisConnectionManager>,
+    __pool: Pool<RedisConnectionManager>,
 }
 
 #[pymethods]
@@ -58,7 +58,7 @@ impl ConnectionPoolManager {
     fn new(address: String) -> PyResult<Self> {
         match RedisConnectionManager::new(address) {
             Ok(conn) => Ok(ConnectionPoolManager { __manager: conn }),
-            Err(_) => Err(ConnectionError::py_err("error when connecting to redis")),
+            Err(_) => Err(ConnectionError::new_err("error when connecting to redis")),
         }
     }
 
@@ -77,7 +77,7 @@ impl ConnectionPoolManager {
                 Ok(p) => {
                     let gil = Python::acquire_gil();
                     let py = gil.python();
-                    let inst: PyObject = ConnectionPool { __pool: &p }.into_py(py);
+                    let inst: PyObject = ConnectionPool { __pool: p }.into_py(py);
 
                     if let Err(e) = set_fut_result(loop_, fut, inst) {
                         e.print(py);
@@ -87,7 +87,7 @@ impl ConnectionPoolManager {
                     if let Err(e) = set_fut_exc(
                         loop_,
                         fut,
-                        ConnectionError::py_err("error when acquiring connection"),
+                        ConnectionError::new_err("error when acquiring connection"),
                     ) {
                         eprintln!("{:?}", e);
                     }
@@ -126,7 +126,7 @@ impl ConnectionPool {
                     if let Err(e) = set_fut_exc(
                         loop_,
                         fut,
-                        ConnectionError::py_err("error when acquiring connection"),
+                        ConnectionError::new_err("error when acquiring connection"),
                     ) {
                         eprintln!("{:?}", e);
                     }
