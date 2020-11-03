@@ -1,16 +1,16 @@
 import pytest
 
-from zangy import Client, Connection
+from zangy import ConnectionPool
 
 
 @pytest.fixture()
 def client():
-    return Client("redis://localhost:6379")
+    return ConnectionPool("redis://localhost:6379")
 
 
 @pytest.fixture()
 async def connection(client):
-    return await client.get_connection()
+    return await client.get()
 
 
 @pytest.mark.asyncio

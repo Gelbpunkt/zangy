@@ -1,6 +1,6 @@
+use deadpool_redis::redis::{RedisWrite, ToRedisArgs, Value};
 use pyo3::prelude::{PyObject, Python, ToPyObject};
 use pyo3::types::{PyAny, PyBool, PyBytes, PyInt, PyList};
-use redis::{ToRedisArgs, Value};
 use std::io::{Error, ErrorKind};
 
 #[derive(Debug)]
@@ -15,7 +15,7 @@ pub enum RedisValuePy {
 impl ToRedisArgs for RedisValuePy {
     fn write_redis_args<W>(&self, out: &mut W)
     where
-        W: ?Sized + redis::RedisWrite,
+        W: ?Sized + RedisWrite,
     {
         match self {
             RedisValuePy::String(s) => s.write_redis_args(out),
@@ -52,15 +52,15 @@ pub fn object_to_re(arg: &PyAny) -> Result<RedisValuePy, Error> {
 
 pub fn re_to_object(v: &Value, py: Python) -> PyObject {
     match v {
-        redis::Value::Nil => py.None(),
-        redis::Value::Int(i) => i.to_object(py),
-        redis::Value::Data(d) => PyBytes::new(py, &d).to_object(py),
-        redis::Value::Bulk(b) => b
+        Value::Nil => py.None(),
+        Value::Int(i) => i.to_object(py),
+        Value::Data(d) => PyBytes::new(py, &d).to_object(py),
+        Value::Bulk(b) => b
             .iter()
             .map(|i| re_to_object(i, py))
             .collect::<Vec<PyObject>>()
             .to_object(py),
-        redis::Value::Status(s) => s.to_object(py),
-        redis::Value::Okay => true.to_object(py),
+        Value::Status(s) => s.to_object(py),
+        Value::Okay => true.to_object(py),
     }
 }

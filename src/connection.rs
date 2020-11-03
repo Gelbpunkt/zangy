@@ -1,17 +1,14 @@
 use crate::asyncio::{get_loop, set_fut_exc, set_fut_result};
 use crate::conversion::{object_to_re, re_to_object, RedisValuePy};
 use crate::exceptions::{ArgumentError, RedisError};
-use crate::pool::RedisConnectionManager;
-use bb8::PooledConnection as Bb8PooledConnection;
+use async_std::task;
+use deadpool_redis::{redis::Cmd, Connection as ReConnection};
 use pyo3::prelude::{pyclass, pymethods, PyObject, PyResult, Python};
 use pyo3::types::PyTuple;
-use redis::aio::MultiplexedConnection as ReConnection;
-use redis::Value;
-use tokio::task;
 
 #[pyclass]
 pub struct Connection {
-    __connection: Bb8PooledConnection<'static, RedisConnectionManager>,
+    pub __connection: ReConnection,
 }
 
 #[pymethods]
@@ -28,7 +25,7 @@ impl Connection {
             .map(|i| object_to_re(i).unwrap())
             .collect();
 
-        let mut redis_cmd = redis::Cmd::new();
+        let mut redis_cmd = Cmd::new();
         redis_cmd.arg(new_args);
 
         let (fut, res_fut, loop_): (PyObject, PyObject, PyObject) = {
@@ -41,10 +38,7 @@ impl Connection {
         let mut conn = self.__connection.clone();
 
         task::spawn(async move {
-            match redis_cmd
-                .query_async::<ReConnection, Value>(&mut conn)
-                .await
-            {
+            match redis_cmd.query_async(&mut conn).await {
                 Ok(v) => {
                     let gil = Python::acquire_gil();
                     let py = gil.python();

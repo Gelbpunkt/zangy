@@ -39,11 +39,9 @@ classifier = [
 ]
 
 [dependencies]
-async-trait = "0.1"
-bb8 = { git = "https://github.com/khuey/bb8" }
 pyo3 = { version = "0.12", features = ["extension-module", "nightly"] }
-redis = { version = "0.17", default-features = false, features = ["aio", "tokio-rt-core"] }
-tokio = { version = "0.2", features = ["rt-core"]}
+deadpool-redis = { git = "https://github.com/Gelbpunkt/deadpool" }
+async-std = { version = "1.6" }
 
 [profile.release]
 codegen-units = 1
