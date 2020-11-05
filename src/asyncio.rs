@@ -26,6 +26,17 @@ pub fn set_fut_result(loop_: PyObject, fut: PyObject, res: PyObject) -> PyResult
     Ok(())
 }
 
+pub fn set_fut_result_none(loop_: PyObject, fut: PyObject) -> PyResult<()> {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+
+    let sr = fut.getattr(py, "set_result")?;
+
+    loop_.call_method1(py, "call_soon_threadsafe", (sr, py.None()))?;
+
+    Ok(())
+}
+
 pub fn set_fut_exc(loop_: PyObject, fut: PyObject, exc: PyErr) -> PyResult<()> {
     let gil = Python::acquire_gil();
     let py = gil.python();
