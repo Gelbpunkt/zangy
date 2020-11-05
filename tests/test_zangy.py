@@ -4,39 +4,34 @@ from zangy import ConnectionPool
 
 
 @pytest.fixture()
-def client():
-    return ConnectionPool("redis://localhost:6379")
-
-
-@pytest.fixture()
-async def connection(client):
-    return await client.get()
+async def client():
+    return await ConnectionPool.connect("redis://localhost:6379", 2)
 
 
 @pytest.mark.asyncio
-async def test_ping(connection):
-    assert await connection.execute("PING") == "PONG"
+async def test_ping(client):
+    assert await client.execute("PING") == "PONG"
 
 
 @pytest.mark.asyncio
-async def test_set(connection):
+async def test_set(client):
     # Note that there are a few situations
     # in which redis actually returns a string for an integer which
     # is why this library generally treats integers and strings
     # the same for all numeric responses.
-    assert await connection.execute("SET", "hello", 1) is True
+    assert await client.execute("SET", "hello", 1) is True
 
 
 @pytest.mark.asyncio
-async def test_get(connection):
-    assert await connection.execute("GET", "hello") == b"1"
+async def test_get(client):
+    assert await client.execute("GET", "hello") == b"1"
 
 
 @pytest.mark.asyncio
-async def test_set_bool(connection):
-    assert await connection.execute("SET", "hello", True) is True
+async def test_set_bool(client):
+    assert await client.execute("SET", "hello", True) is True
 
 
 @pytest.mark.asyncio
-async def test_get_bool(connection):
-    assert await connection.execute("GET", "hello") == b"true"
+async def test_get_bool(client):
+    assert await client.execute("GET", "hello") == b"true"

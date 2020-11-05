@@ -1,4 +1,4 @@
-use deadpool_redis::redis::{RedisWrite, ToRedisArgs, Value};
+use redis::{RedisWrite, ToRedisArgs, Value};
 use pyo3::prelude::{FromPyObject, PyObject, Python, ToPyObject};
 use pyo3::types::PyBytes;
 

@@ -1,49 +1,116 @@
 use crate::asyncio::{create_future, set_fut_exc, set_fut_result};
-use crate::connection::Connection;
-use crate::exceptions::ConnectionError;
+use crate::conversion::{re_to_object, RedisValuePy};
+use crate::exceptions::{ArgumentError, ConnectionError, RedisError};
 use async_std::task;
-use deadpool_redis::{Config, Pool};
-use pyo3::prelude::{pyclass, pymethods, IntoPy, PyObject, PyResult, Python};
+use pyo3::{
+    prelude::{pyclass, pymethods, IntoPy, PyObject, PyResult, Python},
+    types::PyType,
+};
+use redis::{aio::MultiplexedConnection, Client, Cmd};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[pyclass]
 pub struct ConnectionPool {
-    __pool: Pool,
+    current: AtomicUsize,
+    pool: Vec<MultiplexedConnection>,
+    pool_size: usize,
+}
+
+impl ConnectionPool {
+    fn next_idx(&self) -> usize {
+        self.current
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| {
+                if x + 1 == self.pool_size {
+                    Some(0)
+                } else {
+                    Some(x + 1)
+                }
+            })
+            .unwrap()
+    }
 }
 
 #[pymethods]
 impl ConnectionPool {
-    #[new]
-    fn new(address: String) -> PyResult<Self> {
-        let mut cfg = Config::default();
-        cfg.url = Some(address);
-        match cfg.create_pool() {
-            Ok(pool) => Ok(Self { __pool: pool }),
-            Err(_) => Err(ConnectionError::new_err("error when connecting to redis")),
-        }
-    }
-
-    fn get(&self) -> PyResult<PyObject> {
+    #[classmethod]
+    fn connect(_cls: &PyType, address: String, pool_size: u16) -> PyResult<PyObject> {
         let (fut, res_fut, loop_) = create_future()?;
-        let pool = self.__pool.clone();
 
         task::spawn(async move {
-            match pool.get().await {
-                Ok(c) => {
+            let client = Client::open(address);
+
+            match client {
+                Ok(client) => {
+                    let mut connections = Vec::new();
+                    for _ in 0..pool_size {
+                        let connection = client.get_multiplexed_async_std_connection().await;
+
+                        match connection {
+                            Ok(conn) => connections.push(conn),
+                            Err(e) => {
+                                let _ = set_fut_exc(
+                                    loop_,
+                                    fut,
+                                    ConnectionError::new_err(format!("{}", e)),
+                                );
+                                return;
+                            }
+                        }
+                    }
+
+                    let pool = Self {
+                        current: AtomicUsize::new(0),
+                        pool: connections,
+                        pool_size: pool_size as usize,
+                    };
                     let gil = Python::acquire_gil();
                     let py = gil.python();
-                    let inst: PyObject = Connection { __connection: c }.into_py(py);
+                    let _ = set_fut_result(loop_, fut, pool.into_py(py));
+                }
+                Err(e) => {
+                    let _ = set_fut_exc(loop_, fut, ConnectionError::new_err(format!("{}", e)));
+                }
+            }
+        });
 
-                    if let Err(e) = set_fut_result(loop_, fut, inst) {
-                        e.print(py);
+        Ok(res_fut)
+    }
+
+    fn pool_size(&self) -> usize {
+        self.pool_size
+    }
+
+    fn current(&self) -> usize {
+        self.current.load(Ordering::Relaxed)
+    }
+
+    #[args(args = "*")]
+    fn execute(&self, args: Vec<RedisValuePy>) -> PyResult<PyObject> {
+        if args.len() == 0 {
+            return Err(ArgumentError::new_err("no arguments provided to execute"));
+        }
+
+        let mut redis_cmd = Cmd::new();
+        redis_cmd.arg(args);
+
+        let (fut, res_fut, loop_) = create_future()?;
+
+        let idx = self.next_idx();
+        let mut conn = self.pool[idx].clone();
+
+        task::spawn(async move {
+            match redis_cmd.query_async(&mut conn).await {
+                Ok(v) => {
+                    let gil = Python::acquire_gil();
+                    let py = gil.python();
+                    if let Err(e) = set_fut_result(loop_, fut, re_to_object(&v, py)) {
+                        eprintln!("{:?}", e);
                     };
                 }
-                Err(_) => {
-                    if let Err(e) = set_fut_exc(
-                        loop_,
-                        fut,
-                        ConnectionError::new_err("error when acquiring connection"),
-                    ) {
-                        eprintln!("{:?}", e);
+                Err(e) => {
+                    let desc = format!("{}", e);
+                    if let Err(e2) = set_fut_exc(loop_, fut, RedisError::new_err(desc)) {
+                        eprintln!("{:?}", e2);
                     }
                 }
             }
