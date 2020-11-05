@@ -1,4 +1,4 @@
-use crate::asyncio::{get_loop, set_fut_exc, set_fut_result};
+use crate::asyncio::{create_future, set_fut_exc, set_fut_result};
 use crate::connection::Connection;
 use crate::exceptions::ConnectionError;
 use async_std::task;
@@ -23,13 +23,7 @@ impl ConnectionPool {
     }
 
     fn get(&self) -> PyResult<PyObject> {
-        let (fut, res_fut, loop_): (PyObject, PyObject, PyObject) = {
-            let gil = Python::acquire_gil();
-            let py = gil.python();
-            let loop_ = get_loop(py)?;
-            let fut: PyObject = loop_.call_method0(py, "create_future")?.into();
-            (fut.clone_ref(py), fut, loop_.into())
-        };
+        let (fut, res_fut, loop_) = create_future()?;
         let pool = self.__pool.clone();
 
         task::spawn(async move {

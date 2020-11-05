@@ -7,6 +7,14 @@ pub fn get_loop(py: Python) -> PyResult<PyObject> {
     Ok(loop_.into())
 }
 
+pub fn create_future() -> PyResult<(PyObject, PyObject, PyObject)> {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+    let loop_ = get_loop(py)?;
+    let fut: PyObject = loop_.call_method0(py, "create_future")?.into();
+    Ok((fut.clone_ref(py), fut, loop_.into()))
+}
+
 pub fn set_fut_result(loop_: PyObject, fut: PyObject, res: PyObject) -> PyResult<()> {
     let gil = Python::acquire_gil();
     let py = gil.python();

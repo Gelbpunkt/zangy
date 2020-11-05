@@ -1,4 +1,4 @@
-use crate::asyncio::{get_loop, set_fut_exc, set_fut_result};
+use crate::asyncio::{create_future, set_fut_exc, set_fut_result};
 use crate::conversion::{re_to_object, RedisValuePy};
 use crate::exceptions::{ArgumentError, RedisError};
 use async_std::task;
@@ -21,13 +21,7 @@ impl Connection {
         let mut redis_cmd = Cmd::new();
         redis_cmd.arg(args);
 
-        let (fut, res_fut, loop_): (PyObject, PyObject, PyObject) = {
-            let gil = Python::acquire_gil();
-            let py = gil.python();
-            let loop_ = get_loop(py)?;
-            let fut: PyObject = loop_.call_method0(py, "create_future")?.into();
-            (fut.clone_ref(py), fut, loop_.into())
-        };
+        let (fut, res_fut, loop_) = create_future()?;
         let mut conn = self.__connection.clone();
 
         task::spawn(async move {
