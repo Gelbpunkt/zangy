@@ -38,5 +38,5 @@ async def test_set_bool(connection):
 
 
 @pytest.mark.asyncio
-async def test_get_array(connection):
+async def test_get_bool(connection):
     assert await connection.execute("GET", "hello") == b"true"

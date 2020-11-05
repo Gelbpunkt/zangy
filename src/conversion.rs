@@ -1,14 +1,13 @@
 use deadpool_redis::redis::{RedisWrite, ToRedisArgs, Value};
-use pyo3::prelude::{PyObject, Python, ToPyObject};
-use pyo3::types::{PyAny, PyBool, PyBytes, PyInt, PyList};
-use std::io::{Error, ErrorKind};
+use pyo3::prelude::{FromPyObject, PyObject, Python, ToPyObject};
+use pyo3::types::PyBytes;
 
-#[derive(Debug)]
+#[derive(Debug, FromPyObject)]
 pub enum RedisValuePy {
+    Bool(bool),
     String(String),
     Int(i64),
     Float(f64),
-    Bool(bool),
     Array(Vec<RedisValuePy>),
 }
 
@@ -24,29 +23,6 @@ impl ToRedisArgs for RedisValuePy {
             RedisValuePy::Bool(b) => b.write_redis_args(out),
             RedisValuePy::Array(a) => a.write_redis_args(out),
         }
-    }
-}
-
-pub fn object_to_re(arg: &PyAny) -> Result<RedisValuePy, Error> {
-    let name = arg.get_type().name().to_string();
-    let name_str = name.as_str();
-    if name_str == "str" {
-        Ok(RedisValuePy::String(arg.to_string()))
-    } else if name_str == "int" {
-        let actual: &PyInt = arg.downcast().unwrap();
-        Ok(RedisValuePy::Int(actual.extract::<i64>().unwrap()))
-    } else if name_str == "float" {
-        let actual: &PyInt = arg.downcast().unwrap();
-        Ok(RedisValuePy::Float(actual.extract::<f64>().unwrap()))
-    } else if name_str == "bool" {
-        let actual: &PyBool = arg.downcast().unwrap();
-        Ok(RedisValuePy::Bool(actual.extract::<bool>().unwrap()))
-    } else if name_str == "list" {
-        let actual: &PyList = arg.downcast().unwrap();
-        let res = actual.iter().map(|i| object_to_re(i).unwrap()).collect();
-        Ok(RedisValuePy::Array(res))
-    } else {
-        Err(Error::new(ErrorKind::Other, "unsupported type"))
     }
 }
 
