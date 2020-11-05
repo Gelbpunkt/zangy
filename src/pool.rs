@@ -9,10 +9,11 @@ use pyo3::{
 use redis::{aio::MultiplexedConnection, Client, Cmd};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[pyclass]
+#[pyclass(module = "zangy")]
 pub struct ConnectionPool {
     current: AtomicUsize,
     pool: Vec<MultiplexedConnection>,
+    #[pyo3(get)]
     pool_size: usize,
 }
 
@@ -76,10 +77,6 @@ impl ConnectionPool {
         Ok(res_fut)
     }
 
-    fn pool_size(&self) -> usize {
-        self.pool_size
-    }
-
     fn current(&self) -> usize {
         self.current.load(Ordering::Relaxed)
     }
@@ -92,6 +89,64 @@ impl ConnectionPool {
 
         let mut redis_cmd = Cmd::new();
         redis_cmd.arg(args);
+
+        let (fut, res_fut, loop_) = create_future()?;
+
+        let idx = self.next_idx();
+        let mut conn = self.pool[idx].clone();
+
+        task::spawn(async move {
+            match redis_cmd.query_async(&mut conn).await {
+                Ok(v) => {
+                    let gil = Python::acquire_gil();
+                    let py = gil.python();
+                    if let Err(e) = set_fut_result(loop_, fut, re_to_object(&v, py)) {
+                        eprintln!("{:?}", e);
+                    };
+                }
+                Err(e) => {
+                    let desc = format!("{}", e);
+                    if let Err(e2) = set_fut_exc(loop_, fut, RedisError::new_err(desc)) {
+                        eprintln!("{:?}", e2);
+                    }
+                }
+            }
+        });
+
+        Ok(res_fut)
+    }
+
+    fn set(&self, key: String, value: RedisValuePy) -> PyResult<PyObject> {
+        let redis_cmd = Cmd::set(key, value);
+
+        let (fut, res_fut, loop_) = create_future()?;
+
+        let idx = self.next_idx();
+        let mut conn = self.pool[idx].clone();
+
+        task::spawn(async move {
+            match redis_cmd.query_async(&mut conn).await {
+                Ok(v) => {
+                    let gil = Python::acquire_gil();
+                    let py = gil.python();
+                    if let Err(e) = set_fut_result(loop_, fut, re_to_object(&v, py)) {
+                        eprintln!("{:?}", e);
+                    };
+                }
+                Err(e) => {
+                    let desc = format!("{}", e);
+                    if let Err(e2) = set_fut_exc(loop_, fut, RedisError::new_err(desc)) {
+                        eprintln!("{:?}", e2);
+                    }
+                }
+            }
+        });
+
+        Ok(res_fut)
+    }
+
+    fn get(&self, key: String) -> PyResult<PyObject> {
+        let redis_cmd = Cmd::get(key);
 
         let (fut, res_fut, loop_) = create_future()?;
 
