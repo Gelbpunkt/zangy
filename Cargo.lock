@@ -75,15 +75,15 @@ dependencies = [
 
 [[package]]
 name = "async-std"
-version = "1.6.5"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9fa76751505e8df1c7a77762f60486f60c71bbd9b8557f4da6ad47d083732ed"
+checksum = "a7e82538bc65a25dbdff70e4c5439d52f068048ab97cdea0acd73f131594caa1"
 dependencies = [
  "async-global-executor",
  "async-io",
  "async-mutex",
  "blocking",
- "crossbeam-utils 0.7.2",
+ "crossbeam-utils",
  "futures-channel",
  "futures-core",
  "futures-io",
@@ -240,18 +240,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b2a58563f049aa3bae172bc4120f093b5901161c629f280a1f40ba55317d774"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-utils 0.8.0",
-]
-
-[[package]]
-name = "crossbeam-utils"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3c7c73a2d1e9fc0886a08b93e98eb643461230d5f1925e4036204d5f2e261a8"
-dependencies = [
- "autocfg",
- "cfg-if 0.1.10",
- "lazy_static",
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -278,8 +267,8 @@ dependencies = [
 
 [[package]]
 name = "deadpool"
-version = "0.5.2"
-source = "git+https://github.com/Gelbpunkt/deadpool#e24ab26ec4c88bc7ffb663866e7bfe917a1d5cfa"
+version = "0.6.0"
+source = "git+https://github.com/Gelbpunkt/deadpool#ad009a5dc6442c7de7f8b19c5094ef27464ba545"
 dependencies = [
  "async-trait",
  "config",
@@ -292,7 +281,7 @@ dependencies = [
 [[package]]
 name = "deadpool-redis"
 version = "0.6.1"
-source = "git+https://github.com/Gelbpunkt/deadpool#e24ab26ec4c88bc7ffb663866e7bfe917a1d5cfa"
+source = "git+https://github.com/Gelbpunkt/deadpool#ad009a5dc6442c7de7f8b19c5094ef27464ba545"
 dependencies = [
  "async-trait",
  "config",
