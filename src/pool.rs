@@ -137,7 +137,7 @@ impl ConnectionPool {
 
     /// Execute a raw redis command.
     #[args(args = "*")]
-    #[text_signature = "($self)"]
+    #[text_signature = "($self, *args)"]
     fn execute(&self, args: Vec<RedisValuePy>) -> PyResult<PyObject> {
         if args.len() == 0 {
             return Err(ArgumentError::new_err("no arguments provided to execute"));
