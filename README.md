@@ -44,7 +44,7 @@ The API is subject to change.
 ```py
 import zangy
 # Create a pool with 2 connections
-pool = await create_pool("redis://localhost:6379", 2)
+pool = await zangy.create_pool("redis://localhost:6379", 2)
 # Generic redis commands (disadvised)
 await pool.execute("SET", "a", "b")
 # Individual commands
