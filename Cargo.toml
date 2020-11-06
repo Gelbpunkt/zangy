@@ -1,6 +1,6 @@
 [package]
 name = "zangy"
-version = "0.1.0-dev"
+version = "0.1.0"
 authors = ["Jens Reidel <adrian@travitia.xyz>"]
 description = "A fast redis library written in Rust"
 edition = "2018"
@@ -19,7 +19,7 @@ crate-type = ["cdylib"]
 [package.metadata.maturin]
 requires-python = ">=3.8"
 classifier = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",

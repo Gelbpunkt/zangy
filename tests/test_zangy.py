@@ -1,15 +1,16 @@
 import pytest
 
-from zangy import ConnectionPool
+from zangy import create_pool
 
 
 @pytest.fixture()
 async def client():
-    return await ConnectionPool.connect("redis://localhost:6379", 2)
+    return await create_pool("redis://localhost:6379", 2)
 
 
 def test_size(client):
     assert client.pool_size == 2
+
 
 @pytest.mark.asyncio
 async def test_ping(client):

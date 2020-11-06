@@ -1,20 +1,17 @@
 use crate::asyncio::{create_future, set_fut_exc, set_fut_result, set_fut_result_none};
 use crate::conversion::{re_to_object, RedisValuePy};
-use crate::exceptions::{ArgumentError, ConnectionError, RedisError};
+use crate::exceptions::{ArgumentError, RedisError};
 use async_std::task;
-use pyo3::{
-    prelude::{pyclass, pymethods, IntoPy, PyObject, PyResult, Python},
-    types::PyType,
-};
-use redis::{aio::MultiplexedConnection, Client, Cmd};
+use pyo3::prelude::{pyclass, pymethods, PyObject, PyResult, Python};
+use redis::{aio::MultiplexedConnection, Cmd};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[pyclass(module = "zangy")]
 pub struct ConnectionPool {
-    current: AtomicUsize,
-    pool: Vec<MultiplexedConnection>,
+    pub current: AtomicUsize,
+    pub pool: Vec<MultiplexedConnection>,
     #[pyo3(get)]
-    pool_size: usize,
+    pub pool_size: usize,
 }
 
 impl ConnectionPool {
@@ -83,52 +80,6 @@ impl ConnectionPool {
 
 #[pymethods]
 impl ConnectionPool {
-    /// Connect to a redis server at `address` and use up to `pool_size` connections.
-    #[classmethod]
-    #[text_signature = "(cls, address, pool_size)"]
-    fn connect(_cls: &PyType, address: String, pool_size: u16) -> PyResult<PyObject> {
-        let (fut, res_fut, loop_) = create_future()?;
-
-        task::spawn(async move {
-            let client = Client::open(address);
-
-            match client {
-                Ok(client) => {
-                    let mut connections = Vec::new();
-                    for _ in 0..pool_size {
-                        let connection = client.get_multiplexed_async_std_connection().await;
-
-                        match connection {
-                            Ok(conn) => connections.push(conn),
-                            Err(e) => {
-                                let _ = set_fut_exc(
-                                    loop_,
-                                    fut,
-                                    ConnectionError::new_err(format!("{}", e)),
-                                );
-                                return;
-                            }
-                        }
-                    }
-
-                    let pool = Self {
-                        current: AtomicUsize::new(0),
-                        pool: connections,
-                        pool_size: pool_size as usize,
-                    };
-                    let gil = Python::acquire_gil();
-                    let py = gil.python();
-                    let _ = set_fut_result(loop_, fut, pool.into_py(py));
-                }
-                Err(e) => {
-                    let _ = set_fut_exc(loop_, fut, ConnectionError::new_err(format!("{}", e)));
-                }
-            }
-        });
-
-        Ok(res_fut)
-    }
-
     /// Returns the index of the next connection to be used in the pool.
     #[text_signature = "($self)"]
     fn current(&self) -> usize {
@@ -139,7 +90,7 @@ impl ConnectionPool {
     #[args(args = "*")]
     #[text_signature = "($self, *args)"]
     fn execute(&self, args: Vec<RedisValuePy>) -> PyResult<PyObject> {
-        if args.len() == 0 {
+        if args.is_empty() {
             return Err(ArgumentError::new_err("no arguments provided to execute"));
         }
 
