@@ -4,13 +4,15 @@ A fast redis library for python written in Rust using PyO3.
 
 ## Installation
 
-I can't bother providing manylinux wheels yet and we are pre-1.0, so you will have to build it yourself:
+I can't bother providing manylinux wheels yet and we are pre-1.0, so you will have to build it yourself.
+You need python 3.8 or newer, nightly Rust and Cargo:
+
 ```sh
 git clone https://github.com/Gelbpunkt/zangy.git
 cd zangy
 pip install --user maturin
 maturin build --no-sdist --release --strip --manylinux off --interpreter python3
-pip install target/wheels/*.whl -U
+pip install target/wheels/*.whl -U --user
 ```
 
 ## How does it work?
