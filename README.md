@@ -33,8 +33,8 @@ Benchmarks below done with Redis 6.0.6 and Python 3.8, aioredis 1.3.1 and the la
 
 | Task                                              | aioredis operations/s | aioredis total time | zangy operations/s | zangy total time |
 | ------------------------------------------------- | --------------------- | ------------------- | ------------------ | ---------------- |
-| Loop 1 million times, set key to value            | 8154.0                | 2m2.767s            | 7632.19            | 2m11.106s        |
-| Set 1 million keys at once and wait for finishing | -                     | 0m49.456s           | -                  | 0m26.156s        |
+| Loop 1 million times, set key to value            | 8251.0                | 2m1.364s            | 7765.57            | 2m8.844s        |
+| Set 1 million keys at once and wait for finishing | -                     | 0m50.220s           | -                  | 0m27.112s        |
 
 TLDR: zangy is faster in actually concurrent situations. However I aim to outperform aioredis in the other benchmark as well.
 
