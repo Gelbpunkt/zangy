@@ -1,7 +1,7 @@
 use crate::asyncio::{create_future, set_fut_exc, set_fut_result, set_fut_result_none};
 use crate::conversion::{re_to_object, RedisValuePy};
 use crate::exceptions::{ArgumentError, RedisError};
-use async_std::task;
+use crate::runtime::RUNTIME;
 use pyo3::prelude::{pyclass, pymethods, PyObject, PyResult, Python};
 use redis::{aio::MultiplexedConnection, Cmd};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -33,7 +33,7 @@ impl ConnectionPool {
         let idx = self.next_idx();
         let mut conn = self.pool[idx].clone();
 
-        task::spawn(async move {
+        RUNTIME.spawn(async move {
             match cmd.query_async(&mut conn).await {
                 Ok(v) => {
                     let gil = Python::acquire_gil();
@@ -60,7 +60,7 @@ impl ConnectionPool {
         let idx = self.next_idx();
         let mut conn = self.pool[idx].clone();
 
-        task::spawn(async move {
+        RUNTIME.spawn(async move {
             if let Err(e) = cmd
                 .query_async::<MultiplexedConnection, ()>(&mut conn)
                 .await

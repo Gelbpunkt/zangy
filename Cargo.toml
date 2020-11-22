@@ -34,10 +34,14 @@ classifier = [
 ]
 
 [dependencies]
-pyo3 = { git = "https://github.com/PyO3/pyo3", features = ["extension-module", "nightly"] }
-async-std = { version = "1.7", default-features = false, features = ["unstable"] }
+pyo3 = { git = "https://github.com/PyO3/pyo3", features = [
+    "extension-module",
+    "nightly"
+] }
+lazy_static = "1.4"
+tokio = { version = "0.2", default-features = false, features = ["rt-threaded"] }
 redis = { git = "https://github.com/mitsuhiko/redis-rs", default-features = false, features = [
-    "async-std-comp"
+    "tokio-rt-core"
 ] }
 
 [profile.release]

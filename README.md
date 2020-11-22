@@ -21,11 +21,11 @@ zangy aims to be the fastest python redis library. This is done by using [pyo3](
 
 Due to being completely in Rust, zangy can't do lifetime-based connection pooling and instead will create connections on startup and not lazily. All actions are distributed over the pool based on round robin. Internally, [redis-rs](https://github.com/mitsuhiko/redis-rs) is used for the redis operations and [async-std](https://github.com/async-rs/async-std) is used to spawn tasks outside the GIL.
 
-Because it uses async-std and rust-level tasks, zangy unleashes maximum performance when used with a *lot* of concurrent things to do.
+Because it uses async-std and rust-level tasks, zangy unleashes maximum performance when used with a _lot_ of concurrent things to do.
 
 ## Is it fast?
 
-Well... it depends. Currently, zangy is slower than [aioredis](https://github.com/aio-libs/aioredis) when looping over an operation. But async-std, no GIL lock and the speed of Rust show when setting 1 million keys *in parallel*.
+Well... it depends. Currently, zangy is slower than [aioredis](https://github.com/aio-libs/aioredis) when looping over an operation. But async-std, no GIL lock and the speed of Rust show when setting 1 million keys _in parallel_.
 
 Benchmark sources can be found in the `bench` directory.
 
@@ -33,14 +33,15 @@ Benchmarks below done with Redis 6.0.6 and Python 3.8, aioredis 1.3.1 and the la
 
 | Task                                              | aioredis operations/s | aioredis total time | zangy operations/s | zangy total time |
 | ------------------------------------------------- | --------------------- | ------------------- | ------------------ | ---------------- |
-| Loop 1 million times, set key to value            | 8251.0                | 2m1.364s            | 7765.57            | 2m8.844s        |
-| Set 1 million keys at once and wait for finishing | -                     | 0m50.220s           | -                  | 0m27.112s        |
+| Loop 1 million times, set key to value            | 7941.61               | 2m6.054s            | 8485.11            | 1m57.923s        |
+| Set 1 million keys at once and wait for finishing | -                     | 0m49.797s           | -                  | 0m25.294s        |
 
-TLDR: zangy is faster in actually concurrent situations. However I aim to outperform aioredis in the other benchmark as well.
+TLDR: zangy is faster in every regard but crushes in actually concurrent scenarios.
 
 ## Usage
 
 The API is subject to change.
+
 ```py
 import zangy
 # Create a pool with 2 connections
@@ -55,5 +56,5 @@ Aliases for almost all operations exist on pool (`.set`, `.set_ex`, `.zrange`, e
 
 ## What is not supported?
 
-* Pubsub (planned)
-* Single connections. Just use a pool with 1 member.
+- Pubsub (planned)
+- Single connections. Just use a pool with 1 member.

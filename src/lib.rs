@@ -1,4 +1,3 @@
-use async_std::task;
 use pyo3::{
     prelude::{pyfunction, pymodule, IntoPy, PyModule, PyObject, PyResult, Python},
     wrap_pyfunction,
@@ -10,6 +9,7 @@ mod asyncio;
 mod conversion;
 mod exceptions;
 mod pool;
+mod runtime;
 
 /// Connect to a redis server at `address` and use up to `pool_size` connections.
 #[pyfunction]
@@ -17,14 +17,14 @@ mod pool;
 fn create_pool(address: String, pool_size: u16) -> PyResult<PyObject> {
     let (fut, res_fut, loop_) = asyncio::create_future()?;
 
-    task::spawn(async move {
+    runtime::RUNTIME.spawn(async move {
         let client = Client::open(address);
 
         match client {
             Ok(client) => {
                 let mut connections = Vec::new();
                 for _ in 0..pool_size {
-                    let connection = client.get_multiplexed_async_std_connection().await;
+                    let connection = client.get_multiplexed_tokio_connection().await;
 
                     match connection {
                         Ok(conn) => connections.push(conn),
