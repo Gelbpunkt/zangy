@@ -14,7 +14,6 @@ jobs:
         pre-build-command: 'curl -sSf https://sh.rustup.rs | sh -s -- --profile minimal --default-toolchain nightly -y'
         python-versions: 'cp38-cp38 cp39-cp39'
         build-requirements: 'maturin'
-          - name: Upload artifacts
     - name: Upload wheels
       uses: actions/upload-artifact@v2
       with:
