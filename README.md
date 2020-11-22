@@ -19,17 +19,17 @@ pip install target/wheels/*.whl -U --user
 
 zangy aims to be the fastest python redis library. This is done by using [pyo3](https://pyo3.rs) to generate shared objects in binary form. It is pretty much identical to writing this in C, but less of a pain to compile and identical in speed.
 
-Due to being completely in Rust, zangy can't do lifetime-based connection pooling and instead will create connections on startup and not lazily. All actions are distributed over the pool based on round robin. Internally, [redis-rs](https://github.com/mitsuhiko/redis-rs) is used for the redis operations and [async-std](https://github.com/async-rs/async-std) is used to spawn tasks outside the GIL.
+Due to being completely in Rust, zangy can't do lifetime-based connection pooling and instead will create connections on startup and not lazily. All actions are distributed over the pool based on round robin. Internally, [redis-rs](https://github.com/mitsuhiko/redis-rs) is used for the redis operations and [tokio](https://github.com/tokio-rs/tokio) is used to spawn tasks outside the GIL.
 
-Because it uses async-std and rust-level tasks, zangy unleashes maximum performance when used with a _lot_ of concurrent things to do.
+Because it uses tokio and rust-level tasks, zangy unleashes maximum performance when used with a _lot_ of concurrent things to do.
 
 ## Is it fast?
 
-Well... it depends. Currently, zangy is slower than [aioredis](https://github.com/aio-libs/aioredis) when looping over an operation. But async-std, no GIL lock and the speed of Rust show when setting 1 million keys _in parallel_.
+Yes! It beats similar Python libraries by a fair magin. Tokio, no GIL lock and the speed of Rust especially show when setting 1 million keys _in parallel_.
 
 Benchmark sources can be found in the `bench` directory.
 
-Benchmarks below done with Redis 6.0.6 and Python 3.8, aioredis 1.3.1 and the latest zangy master:
+Benchmarks below done with Redis 6.0.9 and Python 3.9, aioredis 1.3.1 and the latest zangy master:
 
 | Task                                              | aioredis operations/s | aioredis total time | zangy operations/s | zangy total time |
 | ------------------------------------------------- | --------------------- | ------------------- | ------------------ | ---------------- |
