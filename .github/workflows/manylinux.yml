@@ -12,7 +12,9 @@ jobs:
       uses: RalfG/python-wheels-manylinux-build@v0.3.2-manylinux2014_x86_64
       with:
         pre-build-command: |
-          curl -sSf https://sh.rustup.rs | sh -s -- --profile minimal --default-toolchain nightly -y
+          curl -sSf https://sh.rustup.rs -o install.sh
+          chmod +x install.sh
+          ./install.sh --profile minimal --default-toolchain nightly -y
         python-versions: 'cp38-cp38 cp39-cp39'
         build-requirements: 'maturin'
     - name: Upload wheels
