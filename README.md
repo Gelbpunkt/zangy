@@ -25,7 +25,7 @@ Because it uses tokio and rust-level tasks, zangy unleashes maximum performance 
 
 ## Is it fast?
 
-Yes! It beats similar Python libraries by a fair magin. Tokio, no GIL lock and the speed of Rust especially show when setting 1 million keys _in parallel_.
+Yes! It beats similar Python libraries by a fair margin. Tokio, no GIL lock and the speed of Rust especially show when setting 1 million keys _in parallel_.
 
 Benchmark sources can be found in the `bench` directory.
 
