@@ -437,7 +437,7 @@ dependencies = [
 [[package]]
 name = "pyo3"
 version = "0.12.3"
-source = "git+https://github.com/PyO3/pyo3#db78cd76c86a743c104af2e75b9bcec33da61ef3"
+source = "git+https://github.com/PyO3/pyo3#6465766ebce617d0ffc95456fe9d335a733a25fc"
 dependencies = [
  "ctor",
  "indoc",
@@ -452,7 +452,7 @@ dependencies = [
 [[package]]
 name = "pyo3-derive-backend"
 version = "0.12.3"
-source = "git+https://github.com/PyO3/pyo3#db78cd76c86a743c104af2e75b9bcec33da61ef3"
+source = "git+https://github.com/PyO3/pyo3#6465766ebce617d0ffc95456fe9d335a733a25fc"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -462,7 +462,7 @@ dependencies = [
 [[package]]
 name = "pyo3cls"
 version = "0.12.3"
-source = "git+https://github.com/PyO3/pyo3#db78cd76c86a743c104af2e75b9bcec33da61ef3"
+source = "git+https://github.com/PyO3/pyo3#6465766ebce617d0ffc95456fe9d335a733a25fc"
 dependencies = [
  "pyo3-derive-backend",
  "quote",
@@ -522,9 +522,9 @@ checksum = "7acad6f34eb9e8a259d3283d1e8c1d34d7415943d4895f65cc73813c7396fc85"
 
 [[package]]
 name = "syn"
-version = "1.0.50"
+version = "1.0.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "443b4178719c5a851e1bde36ce12da21d74a0e60b4d982ec3385a933c812f0f6"
+checksum = "3b4f34193997d92804d359ed09953e25d5138df6bcc055a71bf68ee89fdf9223"
 dependencies = [
  "proc-macro2",
  "quote",
