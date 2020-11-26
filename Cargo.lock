@@ -437,8 +437,9 @@ dependencies = [
 [[package]]
 name = "pyo3"
 version = "0.12.3"
-source = "git+https://github.com/PyO3/pyo3#6465766ebce617d0ffc95456fe9d335a733a25fc"
+source = "git+https://github.com/PyO3/pyo3#6669493502ca93e5b902e6534e00a78c20b46796"
 dependencies = [
+ "cfg-if 1.0.0",
  "ctor",
  "indoc",
  "inventory",
@@ -452,7 +453,7 @@ dependencies = [
 [[package]]
 name = "pyo3-derive-backend"
 version = "0.12.3"
-source = "git+https://github.com/PyO3/pyo3#6465766ebce617d0ffc95456fe9d335a733a25fc"
+source = "git+https://github.com/PyO3/pyo3#6669493502ca93e5b902e6534e00a78c20b46796"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -462,7 +463,7 @@ dependencies = [
 [[package]]
 name = "pyo3cls"
 version = "0.12.3"
-source = "git+https://github.com/PyO3/pyo3#6465766ebce617d0ffc95456fe9d335a733a25fc"
+source = "git+https://github.com/PyO3/pyo3#6669493502ca93e5b902e6534e00a78c20b46796"
 dependencies = [
  "pyo3-derive-backend",
  "quote",
