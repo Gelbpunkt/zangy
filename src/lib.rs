@@ -22,7 +22,7 @@ fn create_pool(address: String, pool_size: u16) -> PyResult<PyObject> {
 
         match client {
             Ok(client) => {
-                let mut connections = Vec::new();
+                let mut connections = Vec::with_capacity(pool_size as usize);
                 for _ in 0..pool_size {
                     let connection = client.get_multiplexed_tokio_connection().await;
 
