@@ -38,4 +38,4 @@ async def test_set_bool(client):
 
 @pytest.mark.asyncio
 async def test_get_bool(client):
-    assert await client.get("hello") == b"true"
+    assert await client.get("hello") == b"1"

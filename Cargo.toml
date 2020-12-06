@@ -34,7 +34,8 @@ classifier = [
 ]
 
 [dependencies]
-pyo3 = { git = "https://github.com/PyO3/pyo3", features = [
+pyo3 = { git = "https://github.com/PyO3/pyo3", default-features = false, features = [
+    "macros",
     "extension-module",
     "nightly"
 ] }
