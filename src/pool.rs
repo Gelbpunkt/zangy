@@ -1090,4 +1090,39 @@ impl ConnectionPool {
         let redis_cmd = Cmd::publish(channel, message);
         self.exec_cmd(redis_cmd)
     }
+
+    // Pubsub methods
+    // https://docs.rs/redis/0.18.0/src/redis/aio.rs.html#132-202
+
+    fn subscribe(&self, channel: RedisValuePy) -> PyResult<PyObject> {
+        let mut redis_cmd: Cmd = Cmd::new();
+        redis_cmd.arg("SUBSCRIBE");
+        redis_cmd.arg(channel);
+
+        self.exec_cmd(redis_cmd)
+    }
+
+    fn psubscribe(&self, pchannel: RedisValuePy) -> PyResult<PyObject> {
+        let mut redis_cmd: Cmd = Cmd::new();
+        redis_cmd.arg("PSUBSCRIBE");
+        redis_cmd.arg(pchannel);
+
+        self.exec_cmd(redis_cmd)
+    }
+
+    fn unsubscribe(&self, channel: RedisValuePy) -> PyResult<PyObject> {
+        let mut redis_cmd: Cmd = Cmd::new();
+        redis_cmd.arg("UNSUBSCRIBE");
+        redis_cmd.arg(channel);
+
+        self.exec_cmd(redis_cmd)
+    }
+
+    fn punsubscribe(&self, pchannel: RedisValuePy) -> PyResult<PyObject> {
+        let mut redis_cmd: Cmd = Cmd::new();
+        redis_cmd.arg("PUNSUBSCRIBE");
+        redis_cmd.arg(pchannel);
+
+        self.exec_cmd(redis_cmd)
+    }
 }
