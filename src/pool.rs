@@ -1094,6 +1094,8 @@ impl ConnectionPool {
     // Pubsub methods
     // https://docs.rs/redis/0.18.0/src/redis/aio.rs.html#132-202
 
+    /// Subscribes to a new channel.
+    #[text_signature = "($self, channel)"]
     fn subscribe(&self, channel: RedisValuePy) -> PyResult<PyObject> {
         let mut redis_cmd: Cmd = Cmd::new();
         redis_cmd.arg("SUBSCRIBE");
@@ -1102,6 +1104,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
+    /// Subscribes to a new channel with a pattern.
+    #[text_signature = "($self, pchannel)"]
     fn psubscribe(&self, pchannel: RedisValuePy) -> PyResult<PyObject> {
         let mut redis_cmd: Cmd = Cmd::new();
         redis_cmd.arg("PSUBSCRIBE");
@@ -1110,6 +1114,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
+    /// Unsubscribes from a channel.
+    #[text_signature = "($self, channel)"]
     fn unsubscribe(&self, channel: RedisValuePy) -> PyResult<PyObject> {
         let mut redis_cmd: Cmd = Cmd::new();
         redis_cmd.arg("UNSUBSCRIBE");
@@ -1118,6 +1124,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
+    /// Unsubscribes from a channel with a pattern.
+    #[text_signature = "($self, pchannel)"]
     fn punsubscribe(&self, pchannel: RedisValuePy) -> PyResult<PyObject> {
         let mut redis_cmd: Cmd = Cmd::new();
         redis_cmd.arg("PUNSUBSCRIBE");
