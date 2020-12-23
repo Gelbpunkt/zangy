@@ -5,6 +5,7 @@ use redis::{RedisWrite, ToRedisArgs, Value};
 #[derive(Debug, FromPyObject)]
 pub enum RedisValuePy {
     Bool(bool),
+    Bytes(Vec<u8>),
     String(String),
     Int(i64),
     Float(f64),
@@ -17,6 +18,7 @@ impl ToRedisArgs for RedisValuePy {
         W: ?Sized + RedisWrite,
     {
         match self {
+            RedisValuePy::Bytes(b) => b.write_redis_args(out),
             RedisValuePy::String(s) => s.write_redis_args(out),
             RedisValuePy::Int(i) => i.write_redis_args(out),
             RedisValuePy::Float(f) => f.write_redis_args(out),

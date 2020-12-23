@@ -49,3 +49,8 @@ async def test_subscribe(client):
 @pytest.mark.asyncio
 async def test_unsubscribe(client):
     assert await client.unsubscribe("test") is None
+
+@pytest.mark.asyncio
+async def test_bytes(client):
+    await client.set("a", b"test")
+    assert await client.get("a") == b"test"
