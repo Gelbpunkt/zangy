@@ -40,8 +40,8 @@ pyo3 = { git = "https://github.com/PyO3/pyo3", default-features = false, feature
     "nightly"
 ] }
 lazy_static = "1.4"
-tokio = { version = "0.3", default-features = false, features = [
-    "rt-multi-thread"
+tokio = { version = "1.0", default-features = false, features = [
+    "rt-multi-thread",
 ] }
 redis = { git = "https://github.com/mitsuhiko/redis-rs", default-features = false, features = [
     "tokio-comp"
@@ -51,6 +51,6 @@ redis = { git = "https://github.com/mitsuhiko/redis-rs", default-features = fals
 codegen-units = 1
 debug = false
 incremental = false
-lto = "thin"
+lto = true
 opt-level = 3
 panic = "abort"
