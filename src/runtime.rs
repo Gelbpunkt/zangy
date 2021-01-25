@@ -1,6 +1,4 @@
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
 
-lazy_static! {
-    pub static ref RUNTIME: Runtime = Runtime::new().unwrap();
-}
+pub static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
