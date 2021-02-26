@@ -4,7 +4,7 @@ A fast redis library for python written in Rust using PyO3.
 
 ## Installation
 
-Until pubsub is implemented, I won't publish zangy on PyPi. To get around the install hazzle, download a wheel from the latest CI run by clicking [here](https://github.com/Gelbpunkt/zangy/actions) and then clicking on a run, then download the wheels.zip. It will include manylinux wheels for most recent python versions.
+`pip install --user zangy`
 
 Building from source requires nightly Rust.
 
@@ -37,17 +37,23 @@ The API is subject to change.
 
 ```py
 import zangy
-# Create a pool with 2 connections
-pool = await zangy.create_pool("redis://localhost:6379", 2)
+# Create a pool with 2 connections and 2 pubsub connections
+pool = await zangy.create_pool("redis://localhost:6379", 2, 2)
 # Generic redis commands (disadvised)
 await pool.execute("SET", "a", "b")
 # Individual commands
 value = await pool.get("a")
+
+# Wait for pubsub messages and echo back
+with pool.pubsub() as pubsub:
+    await pubsub.subscribe("test1")
+    async for (channel, payload) in pubsub:
+        print(channel, payload)
+        await pool.publish("test2", payload)
 ```
 
 Aliases for almost all operations exist on pool (`.set`, `.set_ex`, `.zrange`, etc).
 
 ## What is not supported?
 
-- Pubsub (planned)
 - Single connections. Just use a pool with 1 member.

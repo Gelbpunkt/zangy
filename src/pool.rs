@@ -1,15 +1,27 @@
 use crate::asyncio::{create_future, set_fut_exc, set_fut_result, set_fut_result_none};
 use crate::conversion::{re_to_object, RedisValuePy};
-use crate::exceptions::{ArgumentError, RedisError};
+use crate::exceptions::{ArgumentError, PoolEmpty, PubSubClosed, RedisError};
 use crate::runtime::RUNTIME;
-use pyo3::prelude::{pyclass, pymethods, PyObject, PyResult, Python};
-use redis::{aio::MultiplexedConnection, Cmd};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use futures_util::StreamExt;
+use pyo3::{
+    prelude::{pyclass, pymethods, pyproto, PyObject, PyResult, Python},
+    pyasync::IterANextOutput,
+    pyasync::PyIterANextOutput,
+    types::PyType,
+    IntoPy, PyAny, PyAsyncProtocol, PyContextProtocol, PyRef, PyRefMut,
+};
+use redis::{aio::MultiplexedConnection, aio::PubSub, Cmd, Value};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
+};
+use tokio::sync::Mutex as TokioMutex;
 
 #[pyclass(module = "zangy")]
 pub struct ConnectionPool {
     pub current: AtomicUsize,
     pub pool: Vec<MultiplexedConnection>,
+    pub pubsub_pool: Arc<Mutex<Vec<PubSub>>>,
     #[pyo3(get)]
     pub pool_size: usize,
 }
@@ -1091,46 +1103,236 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    // Pubsub methods
-    // https://docs.rs/redis/0.18.0/src/redis/aio.rs.html#132-202
+    #[text_signature = "($self)"]
+    fn pubsub(&mut self) -> PyResult<PyObject> {
+        let other_conns = self.pubsub_pool.clone();
+        let mut conns = self.pubsub_pool.lock().unwrap();
+        match conns.pop() {
+            Some(conn) => {
+                let ctx = PubSubContext {
+                    connection: Arc::new(TokioMutex::new(Some(conn))),
+                    pool: other_conns,
+                };
+                let gil = Python::acquire_gil();
+                let py = gil.python();
 
+                Ok(ctx.into_py(py))
+            }
+            None => Err(PoolEmpty::new_err("PubSub pool is empty")),
+        }
+    }
+}
+
+#[pyclass(module = "zangy")]
+struct PubSubContext {
+    connection: Arc<TokioMutex<Option<PubSub>>>,
+    pool: Arc<Mutex<Vec<PubSub>>>,
+}
+
+#[pymethods]
+impl PubSubContext {
     /// Subscribes to a new channel.
     #[text_signature = "($self, channel)"]
     fn subscribe(&self, channel: RedisValuePy) -> PyResult<PyObject> {
-        let mut redis_cmd: Cmd = Cmd::new();
-        redis_cmd.arg("SUBSCRIBE");
-        redis_cmd.arg(channel);
+        let (fut, res_fut, loop_) = create_future()?;
+        let conn = self.connection.clone();
 
-        self.exec_cmd(redis_cmd)
+        RUNTIME.spawn(async move {
+            match *conn.lock().await {
+                Some(ref mut v) => {
+                    if let Err(e) = v.subscribe(channel).await {
+                        let desc = format!("{}", e);
+                        if let Err(e2) = set_fut_exc(loop_, fut, RedisError::new_err(desc)) {
+                            eprintln!("{:?}", e2);
+                        }
+                    } else {
+                        let _ = set_fut_result_none(loop_, fut);
+                    };
+                }
+                None => {
+                    if let Err(e) = set_fut_exc(
+                        loop_,
+                        fut,
+                        PubSubClosed::new_err("context manager has been exited"),
+                    ) {
+                        eprintln!("{:?}", e);
+                    }
+                }
+            }
+        });
+
+        Ok(res_fut)
     }
 
     /// Subscribes to a new channel with a pattern.
     #[text_signature = "($self, pchannel)"]
     fn psubscribe(&self, pchannel: RedisValuePy) -> PyResult<PyObject> {
-        let mut redis_cmd: Cmd = Cmd::new();
-        redis_cmd.arg("PSUBSCRIBE");
-        redis_cmd.arg(pchannel);
+        let (fut, res_fut, loop_) = create_future()?;
+        let conn = self.connection.clone();
 
-        self.exec_cmd(redis_cmd)
+        RUNTIME.spawn(async move {
+            match *conn.lock().await {
+                Some(ref mut v) => {
+                    if let Err(e) = v.psubscribe(pchannel).await {
+                        let desc = format!("{}", e);
+                        if let Err(e2) = set_fut_exc(loop_, fut, RedisError::new_err(desc)) {
+                            eprintln!("{:?}", e2);
+                        }
+                    } else {
+                        let _ = set_fut_result_none(loop_, fut);
+                    };
+                }
+                None => {
+                    if let Err(e) = set_fut_exc(
+                        loop_,
+                        fut,
+                        PubSubClosed::new_err("context manager has been exited"),
+                    ) {
+                        eprintln!("{:?}", e);
+                    }
+                }
+            }
+        });
+
+        Ok(res_fut)
     }
 
     /// Unsubscribes from a channel.
     #[text_signature = "($self, channel)"]
     fn unsubscribe(&self, channel: RedisValuePy) -> PyResult<PyObject> {
-        let mut redis_cmd: Cmd = Cmd::new();
-        redis_cmd.arg("UNSUBSCRIBE");
-        redis_cmd.arg(channel);
+        let (fut, res_fut, loop_) = create_future()?;
+        let conn = self.connection.clone();
 
-        self.exec_cmd(redis_cmd)
+        RUNTIME.spawn(async move {
+            match *conn.lock().await {
+                Some(ref mut v) => {
+                    if let Err(e) = v.unsubscribe(channel).await {
+                        let desc = format!("{}", e);
+                        if let Err(e2) = set_fut_exc(loop_, fut, RedisError::new_err(desc)) {
+                            eprintln!("{:?}", e2);
+                        }
+                    } else {
+                        let _ = set_fut_result_none(loop_, fut);
+                    };
+                }
+                None => {
+                    if let Err(e) = set_fut_exc(
+                        loop_,
+                        fut,
+                        PubSubClosed::new_err("context manager has been exited"),
+                    ) {
+                        eprintln!("{:?}", e);
+                    }
+                }
+            }
+        });
+
+        Ok(res_fut)
     }
 
     /// Unsubscribes from a channel with a pattern.
     #[text_signature = "($self, pchannel)"]
     fn punsubscribe(&self, pchannel: RedisValuePy) -> PyResult<PyObject> {
-        let mut redis_cmd: Cmd = Cmd::new();
-        redis_cmd.arg("PUNSUBSCRIBE");
-        redis_cmd.arg(pchannel);
+        let (fut, res_fut, loop_) = create_future()?;
+        let conn = self.connection.clone();
 
-        self.exec_cmd(redis_cmd)
+        RUNTIME.spawn(async move {
+            match *conn.lock().await {
+                Some(ref mut v) => {
+                    if let Err(e) = v.psubscribe(pchannel).await {
+                        let desc = format!("{}", e);
+                        if let Err(e2) = set_fut_exc(loop_, fut, RedisError::new_err(desc)) {
+                            eprintln!("{:?}", e2);
+                        }
+                    } else {
+                        let _ = set_fut_result_none(loop_, fut);
+                    };
+                }
+                None => {
+                    if let Err(e) = set_fut_exc(
+                        loop_,
+                        fut,
+                        PubSubClosed::new_err("context manager has been exited"),
+                    ) {
+                        eprintln!("{:?}", e);
+                    }
+                }
+            }
+        });
+
+        Ok(res_fut)
+    }
+
+    // Impossible to return Self in the ContextProtocol
+    // so we do it here
+    // https://github.com/PyO3/pyo3/issues/1205#issuecomment-778529199
+    fn __enter__<'p>(slf: PyRef<'p, Self>, _py: Python<'p>) -> PyRef<'p, Self> {
+        slf
+    }
+}
+
+#[pyproto]
+impl PyContextProtocol for PubSubContext {
+    fn __exit__(
+        &mut self,
+        _exc_type: Option<&PyType>,
+        _exc_value: Option<&PyAny>,
+        _traceback: Option<&PyAny>,
+    ) -> PyResult<()> {
+        // TODO: Consider using async exit methods
+        self.pool
+            .lock()
+            .unwrap()
+            .push(self.connection.try_lock().unwrap().take().unwrap());
+        Ok(())
+    }
+}
+
+#[pyproto]
+impl PyAsyncProtocol for PubSubContext {
+    fn __aiter__(slf: PyRef<Self>) -> PyRef<Self> {
+        slf
+    }
+
+    fn __anext__(slf: PyRefMut<Self>) -> PyResult<PyIterANextOutput> {
+        let (fut, res_fut, loop_) = create_future()?;
+        let conn = slf.connection.clone();
+
+        RUNTIME.spawn(async move {
+            match *conn.lock().await {
+                Some(ref mut c) => match c.on_message().next().await {
+                    Some(m) => {
+                        // We need (channel, msg)
+                        let val: Value = m.get_payload().unwrap();
+                        let channel = m.get_channel_name();
+                        let gil = Python::acquire_gil();
+                        let py = gil.python();
+                        if let Err(e) = set_fut_result(
+                            loop_,
+                            fut,
+                            (channel.into_py(py), re_to_object(&val, py)).into_py(py),
+                        ) {
+                            eprintln!("{:?}", e);
+                        };
+                    }
+                    None => {
+                        if let Err(e2) = set_fut_result_none(loop_, fut) {
+                            eprintln!("{:?}", e2);
+                        }
+                    }
+                },
+                None => {
+                    if let Err(e) = set_fut_exc(
+                        loop_,
+                        fut,
+                        PubSubClosed::new_err("context manager has been exited"),
+                    ) {
+                        eprintln!("{:?}", e);
+                    }
+                }
+            }
+        });
+
+        Ok(IterANextOutput::Yield(res_fut))
     }
 }

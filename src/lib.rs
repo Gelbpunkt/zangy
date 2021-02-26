@@ -4,6 +4,8 @@ use pyo3::{
 };
 use redis::Client;
 use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 mod asyncio;
 mod conversion;
@@ -14,7 +16,7 @@ mod runtime;
 /// Connect to a redis server at `address` and use up to `pool_size` connections.
 #[pyfunction]
 #[text_signature = "(address, pool_size)"]
-fn create_pool(address: String, pool_size: u16) -> PyResult<PyObject> {
+fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<PyObject> {
     let (fut, res_fut, loop_) = asyncio::create_future()?;
 
     runtime::RUNTIME.spawn(async move {
@@ -38,10 +40,27 @@ fn create_pool(address: String, pool_size: u16) -> PyResult<PyObject> {
                         }
                     }
                 }
+                let mut pubsub_connections = Vec::with_capacity(pubsub_size as usize);
+                for _ in 0..pubsub_size {
+                    let connection = client.get_tokio_connection().await;
+
+                    match connection {
+                        Ok(conn) => pubsub_connections.push(conn.into_pubsub()),
+                        Err(e) => {
+                            let _ = asyncio::set_fut_exc(
+                                loop_,
+                                fut,
+                                exceptions::ConnectionError::new_err(format!("{}", e)),
+                            );
+                            return;
+                        }
+                    }
+                }
 
                 let pool = pool::ConnectionPool {
                     current: AtomicUsize::new(0),
                     pool: connections,
+                    pubsub_pool: Arc::new(Mutex::new(pubsub_connections)),
                     pool_size: pool_size as usize,
                 };
                 let gil = Python::acquire_gil();
@@ -71,6 +90,8 @@ fn zangy(py: Python, m: &PyModule) -> PyResult<()> {
     )?;
     m.add("ArgumentError", py.get_type::<exceptions::ArgumentError>())?;
     m.add("RedisError", py.get_type::<exceptions::RedisError>())?;
+    m.add("PoolEmpty", py.get_type::<exceptions::PoolEmpty>())?;
+    m.add("PubSubClosed", py.get_type::<exceptions::PubSubClosed>())?;
 
     Ok(())
 }
