@@ -1,0 +1,16 @@
+name: Publish to PyPi
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Build manylinux Python wheels
+        run: |
+          docker build -t maturin:latest .
+          docker run --rm -v $(pwd):/io maturin:latest publish --no-sdist --release --strip --manylinux 2010 --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
