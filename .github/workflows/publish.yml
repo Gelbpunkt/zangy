@@ -13,4 +13,4 @@ jobs:
       - name: Build manylinux Python wheels
         run: |
           docker build -t maturin:latest .
-          docker run --rm -v $(pwd):/io maturin:latest publish --no-sdist --release --strip --manylinux 2010 --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
+          docker run --rm -v $(pwd):/io maturin:latest publish --no-sdist --manylinux 2010 --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
