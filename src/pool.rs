@@ -1,16 +1,20 @@
-use crate::asyncio::{create_future, set_fut_exc, set_fut_result, set_fut_result_none};
-use crate::conversion::{re_to_object, RedisValuePy};
-use crate::exceptions::{ArgumentError, PoolEmpty, PubSubClosed, RedisError};
-use crate::runtime::RUNTIME;
+use crate::{
+    asyncio::{create_future, set_fut_exc, set_fut_result, set_fut_result_none},
+    conversion::{re_to_object, RedisValuePy},
+    exceptions::{ArgumentError, PoolEmpty, PubSubClosed, RedisError},
+    runtime::RUNTIME,
+};
 use futures_util::StreamExt;
 use pyo3::{
     prelude::{pyclass, pymethods, pyproto, PyObject, PyResult, Python},
-    pyasync::IterANextOutput,
-    pyasync::PyIterANextOutput,
+    pyasync::{IterANextOutput, PyIterANextOutput},
     types::PyType,
     IntoPy, PyAny, PyAsyncProtocol, PyContextProtocol, PyRef, PyRefMut,
 };
-use redis::{aio::MultiplexedConnection, aio::PubSub, Cmd, Value};
+use redis::{
+    aio::{MultiplexedConnection, PubSub},
+    Cmd, Value,
+};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
@@ -1279,11 +1283,14 @@ impl PyContextProtocol for PubSubContext {
         _exc_value: Option<&PyAny>,
         _traceback: Option<&PyAny>,
     ) -> PyResult<()> {
-        // TODO: Consider using async exit methods
-        self.pool
-            .lock()
-            .unwrap()
-            .push(self.connection.try_lock().unwrap().take().unwrap());
+        let conn = self.connection.clone();
+        let pool = self.pool.clone();
+
+        RUNTIME.spawn(async move {
+            let conn = conn.lock().await.take().unwrap();
+            pool.lock().unwrap().push(conn)
+        });
+
         Ok(())
     }
 }

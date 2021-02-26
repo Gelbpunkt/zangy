@@ -1,5 +1,7 @@
-use pyo3::prelude::{FromPyObject, PyObject, Python, ToPyObject};
-use pyo3::types::PyBytes;
+use pyo3::{
+    prelude::{FromPyObject, PyObject, Python, ToPyObject},
+    types::PyBytes,
+};
 use redis::{RedisWrite, ToRedisArgs, Value};
 
 #[derive(Debug, FromPyObject)]

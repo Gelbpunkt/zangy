@@ -3,9 +3,7 @@ use pyo3::{
     wrap_pyfunction,
 };
 use redis::Client;
-use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 
 mod asyncio;
 mod conversion;
