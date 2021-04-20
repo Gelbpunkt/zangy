@@ -2,7 +2,7 @@ use pyo3::prelude::{PyErr, PyModule, PyObject, PyResult, Python};
 
 pub fn get_loop(py: Python) -> PyResult<PyObject> {
     let asyncio = PyModule::import(py, "asyncio")?;
-    let loop_ = asyncio.call0("get_running_loop")?;
+    let loop_ = asyncio.getattr("get_running_loop")?.call0()?;
 
     Ok(loop_.into())
 }

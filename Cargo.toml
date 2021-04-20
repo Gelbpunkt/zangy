@@ -40,13 +40,13 @@ pyo3 = { git = "https://github.com/PyO3/pyo3", default-features = false, feature
     "nightly"
 ] }
 once_cell = "1.7"
-tokio = { version = "1.2", default-features = false, features = [
+tokio = { version = "1", default-features = false, features = [
     "rt-multi-thread",
 ] }
 redis = { git = "https://github.com/mitsuhiko/redis-rs", default-features = false, features = [
     "tokio-comp"
 ] }
-futures-util = "0.3"
+futures-util = { version = "0.3", default-features = false }
 
 [profile.release]
 codegen-units = 1
