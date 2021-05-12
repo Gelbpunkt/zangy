@@ -4,7 +4,7 @@ on:
   push
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout sources
@@ -18,3 +18,24 @@ jobs:
         with:
           name: wheels
           path: 'target/wheels/*-manylinux*.whl'
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - name: Build manylinux Python wheels
+        run: |
+          pip install --user maturin
+          maturin build --no-sdist --release --strip --manylinux off
+      - name: Upload wheels
+        uses: actions/upload-artifact@v2
+        with:
+          name: wheels
+          path: 'target/wheels/*.whl'
