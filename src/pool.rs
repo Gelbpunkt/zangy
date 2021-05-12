@@ -9,7 +9,7 @@ use pyo3::{
     prelude::{pyclass, pymethods, pyproto, PyObject, PyResult, Python},
     pyasync::{IterANextOutput, PyIterANextOutput},
     types::PyType,
-    IntoPy, PyAny, PyAsyncProtocol, PyContextProtocol, PyRef, PyRefMut,
+    IntoPy, PyAny, PyAsyncProtocol, PyCell, PyRef, PyRefMut,
 };
 use redis::{
     aio::{MultiplexedConnection, PubSub},
@@ -1273,10 +1273,7 @@ impl PubSubContext {
     fn __enter__<'p>(slf: PyRef<'p, Self>, _py: Python<'p>) -> PyRef<'p, Self> {
         slf
     }
-}
 
-#[pyproto]
-impl PyContextProtocol for PubSubContext {
     fn __exit__(
         &mut self,
         _exc_type: Option<&PyType>,

@@ -30,9 +30,11 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
+      - name: Install maturin
+        run: |
+          pip install maturin
       - name: Build manylinux Python wheels
         run: |
-          pip install --user maturin
           maturin build --no-sdist --release --strip --manylinux off
       - name: Upload wheels
         uses: actions/upload-artifact@v2
