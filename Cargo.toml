@@ -1,6 +1,6 @@
 [package]
 name = "zangy"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Jens Reidel <adrian@travitia.xyz>"]
 description = "A fast redis library written in Rust"
 edition = "2018"
@@ -9,7 +9,7 @@ repository = "https://github.com/Gelbpunkt/zangy"
 homepage = "https://github.com/Gelbpunkt/zangy"
 readme = "README.md"
 keywords = ["fast", "redis"]
-include = ["Cargo.toml", "README.md", "src/*"]
+include = ["Cargo.toml", "README.md", "src/*", "pyproject.toml"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
