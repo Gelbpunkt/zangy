@@ -13,4 +13,22 @@ jobs:
       - name: Build manylinux Python wheels
         run: |
           docker build -t maturin:latest .
-          docker run --rm -v $(pwd):/io maturin:latest publish --no-sdist --manylinux 2010 --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
+          docker run --rm -v $(pwd):/io maturin:latest publish --manylinux 2010 --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - name: Install maturin
+        run: |
+          pip install maturin
+      - name: Build Python wheels
+        run: |
+          maturin publish --no-sdist --manylinux off --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}

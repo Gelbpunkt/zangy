@@ -1,6 +1,6 @@
 [package]
 name = "zangy"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jens Reidel <adrian@travitia.xyz>"]
 description = "A fast redis library written in Rust"
 edition = "2018"

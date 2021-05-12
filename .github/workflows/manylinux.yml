@@ -16,7 +16,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
-          name: wheels
+          name: wheels-linux
           path: 'target/wheels/*-manylinux*.whl'
 
   build-windows:
@@ -33,11 +33,11 @@ jobs:
       - name: Install maturin
         run: |
           pip install maturin
-      - name: Build manylinux Python wheels
+      - name: Build Python wheels
         run: |
           maturin build --no-sdist --release --strip --manylinux off
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
-          name: wheels
+          name: wheels-windows
           path: 'target/wheels/*.whl'
