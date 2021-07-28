@@ -13,9 +13,9 @@ mod runtime;
 
 /// Connect to a redis server at `address` and use up to `pool_size` connections.
 #[pyfunction]
-#[text_signature = "(address, pool_size)"]
+#[pyo3(text_signature = "(address, pool_size)")]
 fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<PyObject> {
-    let (fut, res_fut, loop_) = asyncio::create_future()?;
+    let (fut, res_fut) = asyncio::create_future()?;
 
     runtime::RUNTIME.spawn(async move {
         let client = Client::open(address);
@@ -30,7 +30,6 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                         Ok(conn) => connections.push(conn),
                         Err(e) => {
                             let _ = asyncio::set_fut_exc(
-                                loop_,
                                 fut,
                                 exceptions::ConnectionError::new_err(format!("{}", e)),
                             );
@@ -46,7 +45,6 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                         Ok(conn) => pubsub_connections.push(conn.into_pubsub()),
                         Err(e) => {
                             let _ = asyncio::set_fut_exc(
-                                loop_,
                                 fut,
                                 exceptions::ConnectionError::new_err(format!("{}", e)),
                             );
@@ -63,11 +61,10 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                 };
                 let gil = Python::acquire_gil();
                 let py = gil.python();
-                let _ = asyncio::set_fut_result(loop_, fut, pool.into_py(py));
+                let _ = asyncio::set_fut_result(fut, pool.into_py(py));
             }
             Err(e) => {
                 let _ = asyncio::set_fut_exc(
-                    loop_,
                     fut,
                     exceptions::ConnectionError::new_err(format!("{}", e)),
                 );

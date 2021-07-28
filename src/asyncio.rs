@@ -1,49 +1,50 @@
-use pyo3::prelude::{PyErr, PyModule, PyObject, PyResult, Python};
+use once_cell::sync::Lazy;
+use pyo3::prelude::{PyErr, PyObject, PyResult, Python};
 
-pub fn get_loop(py: Python) -> PyResult<PyObject> {
-    let asyncio = PyModule::import(py, "asyncio")?;
-    let loop_ = asyncio.getattr("get_running_loop")?.call0()?;
-
-    Ok(loop_.into())
-}
-
-pub fn create_future() -> PyResult<(PyObject, PyObject, PyObject)> {
+pub static EVENT_LOOP: Lazy<PyObject> = Lazy::new(|| {
     let gil = Python::acquire_gil();
     let py = gil.python();
-    let loop_ = get_loop(py)?;
-    let fut: PyObject = loop_.call_method0(py, "create_future")?;
-    Ok((fut.clone_ref(py), fut, loop_))
-}
+    let asyncio = py.import("asyncio").unwrap();
+    let loop_ = asyncio.getattr("get_event_loop").unwrap().call0().unwrap();
+    loop_.into()
+});
 
-pub fn set_fut_result(loop_: PyObject, fut: PyObject, res: PyObject) -> PyResult<()> {
+pub fn create_future() -> PyResult<(PyObject, PyObject)> {
     let gil = Python::acquire_gil();
     let py = gil.python();
-
-    let sr = fut.getattr(py, "set_result")?;
-
-    loop_.call_method1(py, "call_soon_threadsafe", (sr, res))?;
-
-    Ok(())
+    let fut: PyObject = EVENT_LOOP.call_method0(py, "create_future")?;
+    Ok((fut.clone_ref(py), fut))
 }
 
-pub fn set_fut_result_none(loop_: PyObject, fut: PyObject) -> PyResult<()> {
+pub fn set_fut_result(fut: PyObject, res: PyObject) -> PyResult<()> {
     let gil = Python::acquire_gil();
     let py = gil.python();
 
     let sr = fut.getattr(py, "set_result")?;
 
-    loop_.call_method1(py, "call_soon_threadsafe", (sr, py.None()))?;
+    EVENT_LOOP.call_method1(py, "call_soon_threadsafe", (sr, res))?;
 
     Ok(())
 }
 
-pub fn set_fut_exc(loop_: PyObject, fut: PyObject, exc: PyErr) -> PyResult<()> {
+pub fn set_fut_result_none(fut: PyObject) -> PyResult<()> {
+    let gil = Python::acquire_gil();
+    let py = gil.python();
+
+    let sr = fut.getattr(py, "set_result")?;
+
+    EVENT_LOOP.call_method1(py, "call_soon_threadsafe", (sr, py.None()))?;
+
+    Ok(())
+}
+
+pub fn set_fut_exc(fut: PyObject, exc: PyErr) -> PyResult<()> {
     let gil = Python::acquire_gil();
     let py = gil.python();
 
     let sr = fut.getattr(py, "set_exception")?;
 
-    loop_.call_method1(py, "call_soon_threadsafe", (sr, exc))?;
+    EVENT_LOOP.call_method1(py, "call_soon_threadsafe", (sr, exc))?;
 
     Ok(())
 }
