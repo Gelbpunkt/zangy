@@ -1,3 +1,11 @@
+#![feature(once_cell)]
+#![feature(core_intrinsics)]
+#![deny(clippy::pedantic)]
+#![allow(
+    clippy::used_underscore_binding,
+    clippy::module_name_repetitions,
+    clippy::doc_markdown
+)]
 use pyo3::{
     prelude::{pyfunction, pymodule, IntoPy, PyModule, PyObject, PyResult, Python},
     wrap_pyfunction,
@@ -29,8 +37,8 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                     match connection {
                         Ok(conn) => connections.push(conn),
                         Err(e) => {
-                            let _ = asyncio::set_fut_exc(
-                                fut,
+                            let _res = asyncio::set_fut_exc(
+                                &fut,
                                 exceptions::ConnectionError::new_err(format!("{}", e)),
                             );
                             return;
@@ -44,8 +52,8 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                     match connection {
                         Ok(conn) => pubsub_connections.push(conn.into_pubsub()),
                         Err(e) => {
-                            let _ = asyncio::set_fut_exc(
-                                fut,
+                            let _res = asyncio::set_fut_exc(
+                                &fut,
                                 exceptions::ConnectionError::new_err(format!("{}", e)),
                             );
                             return;
@@ -61,11 +69,11 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                 };
                 let gil = Python::acquire_gil();
                 let py = gil.python();
-                let _ = asyncio::set_fut_result(fut, pool.into_py(py));
+                let _res = asyncio::set_fut_result(&fut, pool.into_py(py));
             }
             Err(e) => {
-                let _ = asyncio::set_fut_exc(
-                    fut,
+                let _res = asyncio::set_fut_exc(
+                    &fut,
                     exceptions::ConnectionError::new_err(format!("{}", e)),
                 );
             }

@@ -1,4 +1,4 @@
-use once_cell::sync::Lazy;
+use std::lazy::SyncLazy;
 use tokio::runtime::Runtime;
 
-pub static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
+pub static RUNTIME: SyncLazy<Runtime> = SyncLazy::new(|| Runtime::new().unwrap());

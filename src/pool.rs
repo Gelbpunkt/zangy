@@ -16,6 +16,7 @@ use redis::{
     Cmd, Value,
 };
 use std::{
+    intrinsics::unlikely,
     num::NonZeroUsize,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -57,13 +58,13 @@ impl ConnectionPool {
                 Ok(v) => {
                     let gil = Python::acquire_gil();
                     let py = gil.python();
-                    if let Err(e) = set_fut_result(fut, re_to_object(&v, py)) {
+                    if let Err(e) = set_fut_result(&fut, re_to_object(&v, py)) {
                         eprintln!("{:?}", e);
                     };
                 }
                 Err(e) => {
                     let desc = e.to_string();
-                    if let Err(e2) = set_fut_exc(fut, RedisError::new_err(desc)) {
+                    if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
                         eprintln!("{:?}", e2);
                     }
                 }
@@ -85,11 +86,11 @@ impl ConnectionPool {
                 .await
             {
                 let desc = e.to_string();
-                if let Err(e2) = set_fut_exc(fut, RedisError::new_err(desc)) {
+                if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
                     eprintln!("{:?}", e2);
                 }
             } else {
-                let _ = set_fut_result_none(fut);
+                let _res = set_fut_result_none(&fut);
             };
         });
 
@@ -97,6 +98,7 @@ impl ConnectionPool {
     }
 }
 
+#[allow(clippy::needless_pass_by_value)]
 #[pymethods]
 impl ConnectionPool {
     /// Returns the index of the next connection to be used in the pool.
@@ -109,7 +111,7 @@ impl ConnectionPool {
     #[args(args = "*")]
     #[pyo3(text_signature = "($self, *args)")]
     fn execute(&self, args: Vec<RedisValuePy>) -> PyResult<PyObject> {
-        if args.is_empty() {
+        if unlikely(args.is_empty()) {
             return Err(ArgumentError::new_err("no arguments provided to execute"));
         }
 
@@ -523,7 +525,7 @@ impl ConnectionPool {
     /// Removes and returns the first element of the list stored at key.
     #[pyo3(text_signature = "($self, key)")]
     fn lpop(&self, key: RedisValuePy, count: Option<usize>) -> PyResult<PyObject> {
-        let redis_cmd = Cmd::lpop(key, count.map(NonZeroUsize::new).flatten());
+        let redis_cmd = Cmd::lpop(key, count.and_then(NonZeroUsize::new));
         self.query_cmd(redis_cmd)
     }
 
@@ -572,7 +574,7 @@ impl ConnectionPool {
     /// Removes and returns the last element of the list stored at key.
     #[pyo3(text_signature = "($self, key)")]
     fn rpop(&self, key: RedisValuePy, count: Option<usize>) -> PyResult<PyObject> {
-        let redis_cmd = Cmd::rpop(key, count.map(NonZeroUsize::new).flatten());
+        let redis_cmd = Cmd::rpop(key, count.and_then(NonZeroUsize::new));
         self.query_cmd(redis_cmd)
     }
 
@@ -1148,17 +1150,17 @@ impl PubSubContext {
             match *conn.lock().await {
                 Some(ref mut v) => {
                     if let Err(e) = v.subscribe(channel).await {
-                        let desc = format!("{}", e);
-                        if let Err(e2) = set_fut_exc(fut, RedisError::new_err(desc)) {
+                        let desc = e.to_string();
+                        if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
                             eprintln!("{:?}", e2);
                         }
                     } else {
-                        let _ = set_fut_result_none(fut);
+                        let _res = set_fut_result_none(&fut);
                     };
                 }
                 None => {
                     if let Err(e) = set_fut_exc(
-                        fut,
+                        &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
                         eprintln!("{:?}", e);
@@ -1180,17 +1182,17 @@ impl PubSubContext {
             match *conn.lock().await {
                 Some(ref mut v) => {
                     if let Err(e) = v.psubscribe(pchannel).await {
-                        let desc = format!("{}", e);
-                        if let Err(e2) = set_fut_exc(fut, RedisError::new_err(desc)) {
+                        let desc = e.to_string();
+                        if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
                             eprintln!("{:?}", e2);
                         }
                     } else {
-                        let _ = set_fut_result_none(fut);
+                        let _res = set_fut_result_none(&fut);
                     };
                 }
                 None => {
                     if let Err(e) = set_fut_exc(
-                        fut,
+                        &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
                         eprintln!("{:?}", e);
@@ -1212,17 +1214,17 @@ impl PubSubContext {
             match *conn.lock().await {
                 Some(ref mut v) => {
                     if let Err(e) = v.unsubscribe(channel).await {
-                        let desc = format!("{}", e);
-                        if let Err(e2) = set_fut_exc(fut, RedisError::new_err(desc)) {
+                        let desc = e.to_string();
+                        if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
                             eprintln!("{:?}", e2);
                         }
                     } else {
-                        let _ = set_fut_result_none(fut);
+                        let _res = set_fut_result_none(&fut);
                     };
                 }
                 None => {
                     if let Err(e) = set_fut_exc(
-                        fut,
+                        &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
                         eprintln!("{:?}", e);
@@ -1244,17 +1246,17 @@ impl PubSubContext {
             match *conn.lock().await {
                 Some(ref mut v) => {
                     if let Err(e) = v.psubscribe(pchannel).await {
-                        let desc = format!("{}", e);
-                        if let Err(e2) = set_fut_exc(fut, RedisError::new_err(desc)) {
+                        let desc = e.to_string();
+                        if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
                             eprintln!("{:?}", e2);
                         }
                     } else {
-                        let _ = set_fut_result_none(fut);
+                        let _res = set_fut_result_none(&fut);
                     };
                 }
                 None => {
                     if let Err(e) = set_fut_exc(
-                        fut,
+                        &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
                         eprintln!("{:?}", e);
@@ -1278,16 +1280,14 @@ impl PubSubContext {
         _exc_type: Option<&PyType>,
         _exc_value: Option<&PyAny>,
         _traceback: Option<&PyAny>,
-    ) -> PyResult<()> {
+    ) {
         let conn = self.connection.clone();
         let pool = self.pool.clone();
 
         RUNTIME.spawn(async move {
             let conn = conn.lock().await.take().unwrap();
-            pool.lock().unwrap().push(conn)
+            pool.lock().unwrap().push(conn);
         });
-
-        Ok(())
     }
 }
 
@@ -1311,21 +1311,21 @@ impl PyAsyncProtocol for PubSubContext {
                         let gil = Python::acquire_gil();
                         let py = gil.python();
                         if let Err(e) = set_fut_result(
-                            fut,
+                            &fut,
                             (channel.into_py(py), re_to_object(&val, py)).into_py(py),
                         ) {
                             eprintln!("{:?}", e);
                         };
                     }
                     None => {
-                        if let Err(e2) = set_fut_result_none(fut) {
+                        if let Err(e2) = set_fut_result_none(&fut) {
                             eprintln!("{:?}", e2);
                         }
                     }
                 },
                 None => {
                     if let Err(e) = set_fut_exc(
-                        fut,
+                        &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
                         eprintln!("{:?}", e);

@@ -3,9 +3,9 @@ name = "zangy"
 repository = "https://github.com/Gelbpunkt/zangy"
 
 [build-system]
-requires = ["maturin"]
+requires = ["maturin>=0.11,<0.12"]
 build-backend = "maturin"
 
 [tool.maturin]
-manylinux = "off"
-strip = "on"
+manylinux = "Linux"
+strip = true

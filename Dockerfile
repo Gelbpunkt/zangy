@@ -6,7 +6,7 @@ ENV PATH /opt/python/cp36-cp36m/bin/:/opt/python/cp37-cp37m/bin/:/opt/python/cp3
 # Otherwise `cargo new` errors
 ENV USER root
 
-RUN curl -sSf https://sh.rustup.rs | sh -s -- --profile minimal --default-toolchain nightly -y \
+RUN curl -sSf https://sh.rustup.rs | sh -s -- --profile minimal --default-toolchain nightly --component rust-src -y \
     && python3 -m pip install --no-cache-dir cffi maturin \
     && mkdir /io
 

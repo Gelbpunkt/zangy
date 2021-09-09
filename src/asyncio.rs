@@ -1,7 +1,7 @@
-use once_cell::sync::Lazy;
 use pyo3::prelude::{PyErr, PyObject, PyResult, Python};
+use std::lazy::SyncLazy;
 
-pub static EVENT_LOOP: Lazy<PyObject> = Lazy::new(|| {
+pub static EVENT_LOOP: SyncLazy<PyObject> = SyncLazy::new(|| {
     let gil = Python::acquire_gil();
     let py = gil.python();
     let asyncio = py.import("asyncio").unwrap();
@@ -16,7 +16,7 @@ pub fn create_future() -> PyResult<(PyObject, PyObject)> {
     Ok((fut.clone_ref(py), fut))
 }
 
-pub fn set_fut_result(fut: PyObject, res: PyObject) -> PyResult<()> {
+pub fn set_fut_result(fut: &PyObject, res: PyObject) -> PyResult<()> {
     let gil = Python::acquire_gil();
     let py = gil.python();
 
@@ -27,7 +27,7 @@ pub fn set_fut_result(fut: PyObject, res: PyObject) -> PyResult<()> {
     Ok(())
 }
 
-pub fn set_fut_result_none(fut: PyObject) -> PyResult<()> {
+pub fn set_fut_result_none(fut: &PyObject) -> PyResult<()> {
     let gil = Python::acquire_gil();
     let py = gil.python();
 
@@ -38,7 +38,7 @@ pub fn set_fut_result_none(fut: PyObject) -> PyResult<()> {
     Ok(())
 }
 
-pub fn set_fut_exc(fut: PyObject, exc: PyErr) -> PyResult<()> {
+pub fn set_fut_exc(fut: &PyObject, exc: PyErr) -> PyResult<()> {
     let gil = Python::acquire_gil();
     let py = gil.python();
 

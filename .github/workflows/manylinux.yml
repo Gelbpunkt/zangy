@@ -30,6 +30,7 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
+          components: rust-src
       - name: Install maturin
         run: |
           pip install maturin
