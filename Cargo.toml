@@ -41,11 +41,13 @@ pyo3 = { git = "https://github.com/PyO3/pyo3", default-features = false, feature
 ] }
 tokio = { version = "1", default-features = false, features = [
     "rt-multi-thread",
+    "parking_lot",
 ] }
 redis = { git = "https://github.com/mitsuhiko/redis-rs", default-features = false, features = [
     "tokio-comp"
 ] }
 futures-util = { version = "0.3", default-features = false }
+parking_lot = { version = "0.11", default-features = false, features = ["nightly"] }
 
 [profile.release]
 codegen-units = 1
