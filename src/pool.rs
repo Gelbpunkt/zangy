@@ -6,10 +6,10 @@ use crate::{
 };
 use futures_util::StreamExt;
 use pyo3::{
-    prelude::{pyclass, pymethods, pyproto, PyObject, PyResult, Python},
+    prelude::{pyclass, pymethods, PyObject, PyResult, Python},
     pyasync::{IterANextOutput, PyIterANextOutput},
     types::PyType,
-    IntoPy, PyAny, PyAsyncProtocol, PyRef, PyRefMut,
+    IntoPy, Py, PyAny, PyRef, PyRefMut,
 };
 use redis::{
     aio::{MultiplexedConnection, PubSub},
@@ -1289,10 +1289,7 @@ impl PubSubContext {
             pool.lock().unwrap().push(conn);
         });
     }
-}
 
-#[pyproto]
-impl PyAsyncProtocol for PubSubContext {
     fn __aiter__(slf: PyRef<Self>) -> PyRef<Self> {
         slf
     }
@@ -1310,10 +1307,12 @@ impl PyAsyncProtocol for PubSubContext {
                         let channel = m.get_channel_name();
                         let gil = Python::acquire_gil();
                         let py = gil.python();
-                        if let Err(e) = set_fut_result(
-                            &fut,
-                            (channel.into_py(py), re_to_object(&val, py)).into_py(py),
-                        ) {
+
+                        let channel_py: Py<PyAny> = channel.into_py(py);
+
+                        if let Err(e) =
+                            set_fut_result(&fut, (channel_py, re_to_object(&val, py)).into_py(py))
+                        {
                             eprintln!("{:?}", e);
                         };
                     }

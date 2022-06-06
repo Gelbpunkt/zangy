@@ -1,15 +1,19 @@
 import asyncio
-import aioredis
+
 import uvloop
-from tqdm.asyncio import tqdm
+from redis import asyncio as aioredis
 
 uvloop.install()
 
+
 async def main():
-    pool = await aioredis.create_redis_pool("redis://localhost", minsize=10, maxsize=10)
-    await pool.set("bench", "yes")
-    async for i in tqdm(range(1000000), desc="Getting keys..."):
-        await pool.get("bench")
+    pool = aioredis.BlockingConnectionPool.from_url(
+        "redis://localhost", max_connections=10
+    )
+    redis = aioredis.Redis(connection_pool=pool)
+    await redis.set("bench", "yes")
+    for i in range(1000000):
+        await redis.get("bench")
 
 
 asyncio.run(main())
