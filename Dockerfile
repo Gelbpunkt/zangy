@@ -12,4 +12,4 @@ RUN curl -sSf https://sh.rustup.rs | sh -s -- --profile minimal --default-toolch
 
 WORKDIR /io
 
-ENTRYPOINT ["/opt/python/cp311-cp311/bin/maturin", "-i python3.11", "-i", "python3.10", "-i python3.9", "-i python3.8", "-i python3.7", "-i python3.6"]
+ENTRYPOINT ["/opt/python/cp311-cp311/bin/maturin"]
