@@ -5,16 +5,16 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Build manylinux Python wheels
         run: |
           podman build -t maturin:latest .
           podman run --rm -it -e CARGO_BUILD_TARGET=x86_64-unknown-linux-gnu -v $(pwd):/io maturin:latest build -i python3.7 -i python3.8 -i python3.9 -i python3.10 -i python3.11 --release --strip --compatibility manylinux_2_28
       - name: Upload wheels
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: wheels-linux
           path: 'target/wheels/*-manylinux*.whl'
@@ -23,14 +23,12 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: nightly
-          override: true
-          components: rust-src
+          components: cargo, rustc, rust-src
       - name: Install maturin
         run: |
           pip install maturin
@@ -40,7 +38,7 @@ jobs:
         env:
           CARGO_BUILD_TARGET: x86_64-pc-windows-msvc
       - name: Upload wheels
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: wheels-windows
           path: 'target/wheels/*.whl'
