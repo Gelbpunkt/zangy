@@ -24,7 +24,7 @@ Benchmark sources can be found in the `bench` directory.
 
 Benchmarks below done with Redis 7.0.8 and Python 3.11.1, redis-py 4.4.2 and the latest zangy master using a pool with 10 connections:
 
-| Task                     | aioredis                       | zangy    |
+| Task                     | redis-py                       | zangy    |
 | ------------------------ | ------------------------------ | -------- |
 | 1.000.000 sequential GET | 2min 34s                       | 1min 44s |
 | 1.000.000 sequential SET | 2min 45s                       | 1min 52s |

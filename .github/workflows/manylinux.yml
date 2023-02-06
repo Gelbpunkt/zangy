@@ -11,8 +11,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Build manylinux Python wheels
         run: |
-          docker build -t maturin:latest .
-          docker run --rm -it -e CARGO_BUILD_TARGET=x86_64-unknown-linux-gnu -v $(pwd):/io maturin:latest build --no-sdist --release --strip --manylinux 2014
+          podman build -t maturin:latest .
+          podman run --rm -it -e CARGO_BUILD_TARGET=x86_64-unknown-linux-gnu -v $(pwd):/io maturin:latest build --release --strip --compatibility manylinux_2_28
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
@@ -36,7 +36,7 @@ jobs:
           pip install maturin
       - name: Build Python wheels
         run: |
-          CARGO_BUILD_TARGET=x86_64-pc-windows-msvc maturin build --no-sdist --release --strip --manylinux off
+          CARGO_BUILD_TARGET=x86_64-pc-windows-msvc maturin build --release --strip
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
