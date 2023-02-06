@@ -36,7 +36,9 @@ jobs:
           pip install maturin
       - name: Build Python wheels
         run: |
-          CARGO_BUILD_TARGET=x86_64-pc-windows-msvc maturin build --release --strip
+          maturin build --release --strip
+        env:
+          CARGO_BUILD_TARGET: x86_64-pc-windows-msvc
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
