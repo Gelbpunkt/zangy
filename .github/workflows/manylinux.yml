@@ -12,7 +12,7 @@ jobs:
       - name: Build manylinux Python wheels
         run: |
           podman build -t maturin:latest .
-          podman run --rm -it -e CARGO_BUILD_TARGET=x86_64-unknown-linux-gnu -v $(pwd):/io maturin:latest build -i python3.6 -i python3.7 -i python3.8 -i python3.9 -i python3.10 -i python3.11 --release --strip --compatibility manylinux_2_28
+          podman run --rm -it -e CARGO_BUILD_TARGET=x86_64-unknown-linux-gnu -v $(pwd):/io maturin:latest build -i python3.7 -i python3.8 -i python3.9 -i python3.10 -i python3.11 --release --strip --compatibility manylinux_2_28
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
