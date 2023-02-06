@@ -6,12 +6,13 @@
     clippy::module_name_repetitions,
     clippy::doc_markdown
 )]
+use std::sync::{atomic::AtomicUsize, Arc, Mutex};
+
 use pyo3::{
     prelude::{pyfunction, pymodule, IntoPy, PyModule, PyObject, PyResult, Python},
     wrap_pyfunction,
 };
 use redis::Client;
-use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 
 mod asyncio;
 mod conversion;
@@ -19,7 +20,8 @@ mod exceptions;
 mod pool;
 mod runtime;
 
-/// Connect to a redis server at `address` and use up to `pool_size` connections.
+/// Connect to a redis server at `address` and use up to `pool_size`
+/// connections.
 #[pyfunction]
 #[pyo3(text_signature = "(address, pool_size)")]
 fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<PyObject> {
@@ -39,7 +41,7 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                         Err(e) => {
                             let _res = asyncio::set_fut_exc(
                                 &fut,
-                                exceptions::ConnectionError::new_err(format!("{}", e)),
+                                exceptions::ConnectionError::new_err(e.to_string()),
                             );
                             return;
                         }
@@ -54,7 +56,7 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                         Err(e) => {
                             let _res = asyncio::set_fut_exc(
                                 &fut,
-                                exceptions::ConnectionError::new_err(format!("{}", e)),
+                                exceptions::ConnectionError::new_err(e.to_string()),
                             );
                             return;
                         }
@@ -67,14 +69,15 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                     pubsub_pool: Arc::new(Mutex::new(pubsub_connections)),
                     pool_size: pool_size as usize,
                 };
-                let gil = Python::acquire_gil();
-                let py = gil.python();
-                let _res = asyncio::set_fut_result(&fut, pool.into_py(py));
+
+                let _res = Python::with_gil(|py| {
+                    asyncio::set_fut_result_with_gil(&fut, pool.into_py(py), py)
+                });
             }
             Err(e) => {
                 let _res = asyncio::set_fut_exc(
                     &fut,
-                    exceptions::ConnectionError::new_err(format!("{}", e)),
+                    exceptions::ConnectionError::new_err(format!("{e}")),
                 );
             }
         }

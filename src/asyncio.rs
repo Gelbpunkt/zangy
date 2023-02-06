@@ -1,50 +1,53 @@
-use pyo3::prelude::{PyErr, PyObject, PyResult, Python};
-use std::lazy::SyncLazy;
+use std::sync::LazyLock;
 
-pub static EVENT_LOOP: SyncLazy<PyObject> = SyncLazy::new(|| {
-    let gil = Python::acquire_gil();
-    let py = gil.python();
-    let asyncio = py.import("asyncio").unwrap();
-    let loop_ = asyncio.getattr("get_event_loop").unwrap().call0().unwrap();
-    loop_.into()
+use pyo3::{
+    intern,
+    prelude::{PyErr, PyObject, PyResult, Python},
+};
+
+pub static EVENT_LOOP: LazyLock<PyObject> = LazyLock::new(|| {
+    Python::with_gil(|py| {
+        let asyncio = py.import("asyncio").unwrap();
+        let loop_ = asyncio
+            .getattr(intern!(py, "get_event_loop"))
+            .unwrap()
+            .call0()
+            .unwrap();
+        loop_.into()
+    })
 });
 
 pub fn create_future() -> PyResult<(PyObject, PyObject)> {
-    let gil = Python::acquire_gil();
-    let py = gil.python();
-    let fut: PyObject = EVENT_LOOP.call_method0(py, "create_future")?;
-    Ok((fut.clone_ref(py), fut))
+    Python::with_gil(|py| {
+        let fut: PyObject = EVENT_LOOP.call_method0(py, intern!(py, "create_future"))?;
+        Ok((fut.clone_ref(py), fut))
+    })
 }
 
-pub fn set_fut_result(fut: &PyObject, res: PyObject) -> PyResult<()> {
-    let gil = Python::acquire_gil();
-    let py = gil.python();
+pub fn set_fut_result_with_gil(fut: &PyObject, res: PyObject, py: Python) -> PyResult<()> {
+    let sr = fut.getattr(py, intern!(py, "set_result"))?;
 
-    let sr = fut.getattr(py, "set_result")?;
-
-    EVENT_LOOP.call_method1(py, "call_soon_threadsafe", (sr, res))?;
+    EVENT_LOOP.call_method1(py, intern!(py, "call_soon_threadsafe"), (sr, res))?;
 
     Ok(())
 }
 
 pub fn set_fut_result_none(fut: &PyObject) -> PyResult<()> {
-    let gil = Python::acquire_gil();
-    let py = gil.python();
+    Python::with_gil(|py| {
+        let sr = fut.getattr(py, intern!(py, "set_result"))?;
 
-    let sr = fut.getattr(py, "set_result")?;
+        EVENT_LOOP.call_method1(py, intern!(py, "call_soon_threadsafe"), (sr, py.None()))?;
 
-    EVENT_LOOP.call_method1(py, "call_soon_threadsafe", (sr, py.None()))?;
-
-    Ok(())
+        Ok(())
+    })
 }
 
 pub fn set_fut_exc(fut: &PyObject, exc: PyErr) -> PyResult<()> {
-    let gil = Python::acquire_gil();
-    let py = gil.python();
+    Python::with_gil(|py| {
+        let sr = fut.getattr(py, intern!(py, "set_exception"))?;
 
-    let sr = fut.getattr(py, "set_exception")?;
+        EVENT_LOOP.call_method1(py, intern!(py, "call_soon_threadsafe"), (sr, exc))?;
 
-    EVENT_LOOP.call_method1(py, "call_soon_threadsafe", (sr, exc))?;
-
-    Ok(())
+        Ok(())
+    })
 }

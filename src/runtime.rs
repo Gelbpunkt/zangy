@@ -1,4 +1,5 @@
-use std::lazy::SyncLazy;
+use std::sync::LazyLock;
+
 use tokio::runtime::Runtime;
 
-pub static RUNTIME: SyncLazy<Runtime> = SyncLazy::new(|| Runtime::new().unwrap());
+pub static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| Runtime::new().unwrap());

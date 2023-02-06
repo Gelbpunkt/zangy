@@ -1,20 +1,3 @@
-use crate::{
-    asyncio::{create_future, set_fut_exc, set_fut_result, set_fut_result_none},
-    conversion::{re_to_object, RedisValuePy},
-    exceptions::{ArgumentError, PoolEmpty, PubSubClosed, RedisError},
-    runtime::RUNTIME,
-};
-use futures_util::StreamExt;
-use pyo3::{
-    prelude::{pyclass, pymethods, PyObject, PyResult, Python},
-    pyasync::{IterANextOutput, PyIterANextOutput},
-    types::PyType,
-    IntoPy, Py, PyAny, PyRef, PyRefMut,
-};
-use redis::{
-    aio::{MultiplexedConnection, PubSub},
-    Cmd, Value,
-};
 use std::{
     intrinsics::unlikely,
     num::NonZeroUsize,
@@ -23,7 +6,26 @@ use std::{
         Arc, Mutex,
     },
 };
+
+use futures_util::StreamExt;
+use pyo3::{
+    prelude::{pyclass, pymethods, PyObject, PyResult, Python},
+    pyasync::{IterANextOutput, PyIterANextOutput},
+    types::PyType,
+    IntoPy, Py, PyAny, PyRef,
+};
+use redis::{
+    aio::{MultiplexedConnection, PubSub},
+    Cmd, Value,
+};
 use tokio::sync::Mutex as TokioMutex;
+
+use crate::{
+    asyncio::{create_future, set_fut_exc, set_fut_result_none, set_fut_result_with_gil},
+    conversion::{re_to_object, RedisValuePy},
+    exceptions::{ArgumentError, PoolEmpty, PubSubClosed, RedisError},
+    runtime::RUNTIME,
+};
 
 #[pyclass(module = "zangy")]
 pub struct ConnectionPool {
@@ -56,16 +58,16 @@ impl ConnectionPool {
         RUNTIME.spawn(async move {
             match cmd.query_async(&mut conn).await {
                 Ok(v) => {
-                    let gil = Python::acquire_gil();
-                    let py = gil.python();
-                    if let Err(e) = set_fut_result(&fut, re_to_object(&v, py)) {
-                        eprintln!("{:?}", e);
-                    };
+                    Python::with_gil(|py| {
+                        if let Err(e) = set_fut_result_with_gil(&fut, re_to_object(&v, py), py) {
+                            eprintln!("{e:?}");
+                        };
+                    });
                 }
                 Err(e) => {
                     let desc = e.to_string();
                     if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
-                        eprintln!("{:?}", e2);
+                        eprintln!("{e2:?}");
                     }
                 }
             }
@@ -87,7 +89,7 @@ impl ConnectionPool {
             {
                 let desc = e.to_string();
                 if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
-                    eprintln!("{:?}", e2);
+                    eprintln!("{e2:?}");
                 }
             } else {
                 let _res = set_fut_result_none(&fut);
@@ -108,7 +110,7 @@ impl ConnectionPool {
     }
 
     /// Execute a raw redis command.
-    #[args(args = "*")]
+    #[pyo3(signature = (*args))]
     #[pyo3(text_signature = "($self, *args)")]
     fn execute(&self, args: Vec<RedisValuePy>) -> PyResult<PyObject> {
         if unlikely(args.is_empty()) {
@@ -175,7 +177,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Sets multiple keys to their values failing if at least one already exists.
+    /// Sets multiple keys to their values failing if at least one already
+    /// exists.
     #[pyo3(text_signature = "($self, items)")]
     fn mset_nx(&self, items: Vec<(RedisValuePy, RedisValuePy)>) -> PyResult<PyObject> {
         let redis_cmd = Cmd::mset_nx(&items);
@@ -189,7 +192,8 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Get a range of bytes/substring from the value of a key. Negative values provide an offset from the end of the value.
+    /// Get a range of bytes/substring from the value of a key. Negative values
+    /// provide an offset from the end of the value.
     #[pyo3(text_signature = "($self, key, from, to)")]
     fn getrange(&self, key: RedisValuePy, from: isize, to: isize) -> PyResult<PyObject> {
         let redis_cmd = Cmd::getrange(key, from, to);
@@ -292,7 +296,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Increment the numeric value of a key by the given amount. This issues a `INCRBY` or `INCRBYFLOAT` depending on the type.
+    /// Increment the numeric value of a key by the given amount. This issues a
+    /// `INCRBY` or `INCRBYFLOAT` depending on the type.
     #[pyo3(text_signature = "($self, key, delta)")]
     fn incr(&self, key: RedisValuePy, delta: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::incr(key, delta);
@@ -327,28 +332,32 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Perform a bitwise AND between multiple keys (containing string values) and store the result in the destination key.
+    /// Perform a bitwise AND between multiple keys (containing string values)
+    /// and store the result in the destination key.
     #[pyo3(text_signature = "($self, dstkey, srckeys)")]
     fn bit_and(&self, dstkey: RedisValuePy, srckeys: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::bit_and(dstkey, srckeys);
         self.exec_cmd(redis_cmd)
     }
 
-    /// Perform a bitwise OR between multiple keys (containing string values) and store the result in the destination key.
+    /// Perform a bitwise OR between multiple keys (containing string values)
+    /// and store the result in the destination key.
     #[pyo3(text_signature = "($self, dstkey, srckeys)")]
     fn bit_or(&self, dstkey: RedisValuePy, srckeys: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::bit_or(dstkey, srckeys);
         self.exec_cmd(redis_cmd)
     }
 
-    /// Perform a bitwise XOR between multiple keys (containing string values) and store the result in the destination key.
+    /// Perform a bitwise XOR between multiple keys (containing string values)
+    /// and store the result in the destination key.
     #[pyo3(text_signature = "($self, dstkey, srckeys)")]
     fn bit_xor(&self, dstkey: RedisValuePy, srckeys: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::bit_xor(dstkey, srckeys);
         self.exec_cmd(redis_cmd)
     }
 
-    /// Perform a bitwise NOT of the key (containing string values) and store the result in the destination key.
+    /// Perform a bitwise NOT of the key (containing string values) and store
+    /// the result in the destination key.
     #[pyo3(text_signature = "($self, dstkey, srckeys)")]
     fn bit_not(&self, dstkey: RedisValuePy, srckeys: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::bit_not(dstkey, srckeys);
@@ -458,21 +467,24 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Remove and get the first element in a list, or block until one is available.
+    /// Remove and get the first element in a list, or block until one is
+    /// available.
     #[pyo3(text_signature = "($self, key, timeout)")]
     fn blpop(&self, key: RedisValuePy, timeout: usize) -> PyResult<PyObject> {
         let redis_cmd = Cmd::blpop(key, timeout);
         self.query_cmd(redis_cmd)
     }
 
-    /// Remove and get the last element in a list, or block until one is available.
+    /// Remove and get the last element in a list, or block until one is
+    /// available.
     #[pyo3(text_signature = "($self, key, timeout)")]
     fn brpop(&self, key: RedisValuePy, timeout: usize) -> PyResult<PyObject> {
         let redis_cmd = Cmd::brpop(key, timeout);
         self.query_cmd(redis_cmd)
     }
 
-    /// Pop a value from a list, push it to another list and return it; or block until one is available.
+    /// Pop a value from a list, push it to another list and return it; or block
+    /// until one is available.
     #[pyo3(text_signature = "($self, srckey, dstkey, timeout)")]
     fn brpoplpush(
         &self,
@@ -536,7 +548,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Inserts a value at the head of the list stored at key, only if key already exists and holds a list.
+    /// Inserts a value at the head of the list stored at key, only if key
+    /// already exists and holds a list.
     #[pyo3(text_signature = "($self, key, value)")]
     fn lpush_exists(&self, key: RedisValuePy, value: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::lpush_exists(key, value);
@@ -550,14 +563,16 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Removes the first count occurrences of elements equal to value from the list stored at key.
+    /// Removes the first count occurrences of elements equal to value from the
+    /// list stored at key.
     #[pyo3(text_signature = "($self, key, count, value)")]
     fn lrem(&self, key: RedisValuePy, count: isize, value: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::lrem(key, count, value);
         self.exec_cmd(redis_cmd)
     }
 
-    /// Trim an existing list so that it will contain only the specified range of elements specified.
+    /// Trim an existing list so that it will contain only the specified range
+    /// of elements specified.
     #[pyo3(text_signature = "($self, key, start, stop)")]
     fn ltrim(&self, key: RedisValuePy, start: isize, stop: isize) -> PyResult<PyObject> {
         let redis_cmd = Cmd::ltrim(key, start, stop);
@@ -592,7 +607,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Inserts value at the tail of the list stored at key, only if key already exists and holds a list.
+    /// Inserts value at the tail of the list stored at key, only if key already
+    /// exists and holds a list.
     #[pyo3(text_signature = "($self, key, value)")]
     fn rpush_exists(&self, key: RedisValuePy, value: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::rpush_exists(key, value);
@@ -709,7 +725,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Add one member to a sorted set, or update its score if it already exists.
+    /// Add one member to a sorted set, or update its score if it already
+    /// exists.
     #[pyo3(text_signature = "($self, key, member, score)")]
     fn zadd(
         &self,
@@ -721,7 +738,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Add multiple members to a sorted set, or update its score if it already exists.
+    /// Add multiple members to a sorted set, or update its score if it already
+    /// exists.
     #[pyo3(text_signature = "($self, key, items)")]
     fn zadd_multiple(
         &self,
@@ -751,7 +769,8 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Increments the member in a sorted set at key by delta. If the member does not exist, it is added with delta as its score.
+    /// Increments the member in a sorted set at key by delta. If the member
+    /// does not exist, it is added with delta as its score.
     #[pyo3(text_signature = "($self, key, member, delta)")]
     fn zincr(
         &self,
@@ -763,28 +782,32 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Intersect multiple sorted sets and store the resulting sorted set in a new key using SUM as aggregation function.
+    /// Intersect multiple sorted sets and store the resulting sorted set in a
+    /// new key using SUM as aggregation function.
     #[pyo3(text_signature = "($self, dstkey, keys)")]
     fn zinterstore(&self, dstkey: RedisValuePy, keys: Vec<RedisValuePy>) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zinterstore(dstkey, &keys);
         self.exec_cmd(redis_cmd)
     }
 
-    /// Intersect multiple sorted sets and store the resulting sorted set in a new key using MIN as aggregation function.
+    /// Intersect multiple sorted sets and store the resulting sorted set in a
+    /// new key using MIN as aggregation function.
     #[pyo3(text_signature = "($self, dstkey, keys)")]
     fn zinterstore_min(&self, dstkey: RedisValuePy, keys: Vec<RedisValuePy>) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zinterstore_min(dstkey, &keys);
         self.exec_cmd(redis_cmd)
     }
 
-    /// Intersect multiple sorted sets and store the resulting sorted set in a new key using MAX as aggregation function.
+    /// Intersect multiple sorted sets and store the resulting sorted set in a
+    /// new key using MAX as aggregation function.
     #[pyo3(text_signature = "($self, dstkey, keys)")]
     fn zinterstore_max(&self, dstkey: RedisValuePy, keys: Vec<RedisValuePy>) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zinterstore_max(dstkey, &keys);
         self.exec_cmd(redis_cmd)
     }
 
-    /// Count the number of members in a sorted set between a given lexicographical range.
+    /// Count the number of members in a sorted set between a given
+    /// lexicographical range.
     #[pyo3(text_signature = "($self, key, min, max)")]
     fn zlexcount(
         &self,
@@ -796,14 +819,16 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Removes and returns up to count members with the highest scores in a sorted set.
+    /// Removes and returns up to count members with the highest scores in a
+    /// sorted set.
     #[pyo3(text_signature = "($self, key, count)")]
     fn zpopmax(&self, key: RedisValuePy, count: isize) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zpopmax(key, count);
         self.query_cmd(redis_cmd)
     }
 
-    /// Removes and returns up to count members with the lowest scores in a sorted set.
+    /// Removes and returns up to count members with the lowest scores in a
+    /// sorted set.
     #[pyo3(text_signature = "($self, key, count)")]
     fn zpopmin(&self, key: RedisValuePy, count: isize) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zpopmin(key, count);
@@ -841,7 +866,8 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Return a range of members in a sorted set, by lexicographical range with offset and limit.
+    /// Return a range of members in a sorted set, by lexicographical range with
+    /// offset and limit.
     #[pyo3(text_signature = "($self, key, min, max, offset, count)")]
     fn zrangebylex_limit(
         &self,
@@ -867,7 +893,8 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Return a range of members in a sorted set, by lexicographical range with offset and limit.
+    /// Return a range of members in a sorted set, by lexicographical range with
+    /// offset and limit.
     #[pyo3(text_signature = "($self, key, max, min, offset, count)")]
     fn zrevrangebylex_limit(
         &self,
@@ -919,7 +946,8 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Return a range of members in a sorted set, by score with limit with scores.
+    /// Return a range of members in a sorted set, by score with limit with
+    /// scores.
     #[pyo3(text_signature = "($self, key, min, max, offset, count)")]
     fn zrangebyscore_limit_withscores(
         &self,
@@ -947,7 +975,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Remove all members in a sorted set between the given lexicographical range.
+    /// Remove all members in a sorted set between the given lexicographical
+    /// range.
     #[pyo3(text_signature = "($self, key, min, max)")]
     fn zrembylex(
         &self,
@@ -978,14 +1007,16 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Return a range of members in a sorted set, by index, with scores ordered from high to low.
+    /// Return a range of members in a sorted set, by index, with scores ordered
+    /// from high to low.
     #[pyo3(text_signature = "($self, key, start, stop)")]
     fn zrevrange(&self, key: RedisValuePy, start: isize, stop: isize) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zrevrange(key, start, stop);
         self.query_cmd(redis_cmd)
     }
 
-    /// Return a range of members in a sorted set, by index, with scores ordered from high to low.
+    /// Return a range of members in a sorted set, by index, with scores ordered
+    /// from high to low.
     #[pyo3(text_signature = "($self, key, start, stop)")]
     fn zrevrange_withscores(
         &self,
@@ -1035,7 +1066,8 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Return a range of members in a sorted set, by score with limit with scores.
+    /// Return a range of members in a sorted set, by score with limit with
+    /// scores.
     #[pyo3(text_signature = "($self, key, max, min, offset, count)")]
     fn zrevrangebyscore_limit_withscores(
         &self,
@@ -1049,7 +1081,8 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Determine the index of a member in a sorted set, with scores ordered from high to low.
+    /// Determine the index of a member in a sorted set, with scores ordered
+    /// from high to low.
     #[pyo3(text_signature = "($self, key, member)")]
     fn zrevrank(&self, key: RedisValuePy, member: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zrevrank(key, member);
@@ -1063,21 +1096,24 @@ impl ConnectionPool {
         self.query_cmd(redis_cmd)
     }
 
-    /// Unions multiple sorted sets and store the resulting sorted set in a new key using SUM as aggregation function.
+    /// Unions multiple sorted sets and store the resulting sorted set in a new
+    /// key using SUM as aggregation function.
     #[pyo3(text_signature = "($self, dstkey, keys)")]
     fn zunionstore(&self, dstkey: RedisValuePy, keys: Vec<RedisValuePy>) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zunionstore(dstkey, &keys);
         self.exec_cmd(redis_cmd)
     }
 
-    /// Unions multiple sorted sets and store the resulting sorted set in a new key using MIN as aggregation function.
+    /// Unions multiple sorted sets and store the resulting sorted set in a new
+    /// key using MIN as aggregation function.
     #[pyo3(text_signature = "($self, dstkey, keys)")]
     fn zunionstore_min(&self, dstkey: RedisValuePy, keys: Vec<RedisValuePy>) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zunionstore_min(dstkey, &keys);
         self.exec_cmd(redis_cmd)
     }
 
-    /// Unions multiple sorted sets and store the resulting sorted set in a new key using MAX as aggregation function.
+    /// Unions multiple sorted sets and store the resulting sorted set in a new
+    /// key using MAX as aggregation function.
     #[pyo3(text_signature = "($self, dstkey, keys)")]
     fn zunionstore_max(&self, dstkey: RedisValuePy, keys: Vec<RedisValuePy>) -> PyResult<PyObject> {
         let redis_cmd = Cmd::zunionstore_max(dstkey, &keys);
@@ -1091,7 +1127,8 @@ impl ConnectionPool {
         self.exec_cmd(redis_cmd)
     }
 
-    /// Return the approximated cardinality of the set(s) observed by the HyperLogLog at key(s).
+    /// Return the approximated cardinality of the set(s) observed by the
+    /// HyperLogLog at key(s).
     #[pyo3(text_signature = "($self, key)")]
     fn pfcount(&self, key: RedisValuePy) -> PyResult<PyObject> {
         let redis_cmd = Cmd::pfcount(key);
@@ -1122,10 +1159,8 @@ impl ConnectionPool {
                     connection: Arc::new(TokioMutex::new(Some(conn))),
                     pool: other_conns,
                 };
-                let gil = Python::acquire_gil();
-                let py = gil.python();
 
-                Ok(ctx.into_py(py))
+                Ok(Python::with_gil(|py| ctx.into_py(py)))
             }
             None => Err(PoolEmpty::new_err("PubSub pool is empty")),
         }
@@ -1152,7 +1187,7 @@ impl PubSubContext {
                     if let Err(e) = v.subscribe(channel).await {
                         let desc = e.to_string();
                         if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
-                            eprintln!("{:?}", e2);
+                            eprintln!("{e2:?}");
                         }
                     } else {
                         let _res = set_fut_result_none(&fut);
@@ -1163,7 +1198,7 @@ impl PubSubContext {
                         &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
-                        eprintln!("{:?}", e);
+                        eprintln!("{e:?}");
                     }
                 }
             }
@@ -1184,7 +1219,7 @@ impl PubSubContext {
                     if let Err(e) = v.psubscribe(pchannel).await {
                         let desc = e.to_string();
                         if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
-                            eprintln!("{:?}", e2);
+                            eprintln!("{e2:?}");
                         }
                     } else {
                         let _res = set_fut_result_none(&fut);
@@ -1195,7 +1230,7 @@ impl PubSubContext {
                         &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
-                        eprintln!("{:?}", e);
+                        eprintln!("{e:?}");
                     }
                 }
             }
@@ -1216,7 +1251,7 @@ impl PubSubContext {
                     if let Err(e) = v.unsubscribe(channel).await {
                         let desc = e.to_string();
                         if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
-                            eprintln!("{:?}", e2);
+                            eprintln!("{e2:?}");
                         }
                     } else {
                         let _res = set_fut_result_none(&fut);
@@ -1227,7 +1262,7 @@ impl PubSubContext {
                         &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
-                        eprintln!("{:?}", e);
+                        eprintln!("{e:?}");
                     }
                 }
             }
@@ -1248,7 +1283,7 @@ impl PubSubContext {
                     if let Err(e) = v.psubscribe(pchannel).await {
                         let desc = e.to_string();
                         if let Err(e2) = set_fut_exc(&fut, RedisError::new_err(desc)) {
-                            eprintln!("{:?}", e2);
+                            eprintln!("{e2:?}");
                         }
                     } else {
                         let _res = set_fut_result_none(&fut);
@@ -1259,7 +1294,7 @@ impl PubSubContext {
                         &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
-                        eprintln!("{:?}", e);
+                        eprintln!("{e:?}");
                     }
                 }
             }
@@ -1271,7 +1306,7 @@ impl PubSubContext {
     // Impossible to return Self in the ContextProtocol
     // so we do it here
     // https://github.com/PyO3/pyo3/issues/1205#issuecomment-778529199
-    fn __enter__<'p>(slf: PyRef<'p, Self>, _py: Python<'p>) -> PyRef<'p, Self> {
+    fn __enter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
 
@@ -1294,9 +1329,9 @@ impl PubSubContext {
         slf
     }
 
-    fn __anext__(slf: PyRefMut<Self>) -> PyResult<PyIterANextOutput> {
+    fn __anext__(&self) -> PyResult<PyIterANextOutput> {
         let (fut, res_fut) = create_future()?;
-        let conn = slf.connection.clone();
+        let conn = self.connection.clone();
 
         RUNTIME.spawn(async move {
             match *conn.lock().await {
@@ -1305,20 +1340,22 @@ impl PubSubContext {
                         // We need (channel, msg)
                         let val: Value = m.get_payload().unwrap();
                         let channel = m.get_channel_name();
-                        let gil = Python::acquire_gil();
-                        let py = gil.python();
 
-                        let channel_py: Py<PyAny> = channel.into_py(py);
+                        Python::with_gil(|py| {
+                            let channel_py: Py<PyAny> = channel.into_py(py);
 
-                        if let Err(e) =
-                            set_fut_result(&fut, (channel_py, re_to_object(&val, py)).into_py(py))
-                        {
-                            eprintln!("{:?}", e);
-                        };
+                            if let Err(e) = set_fut_result_with_gil(
+                                &fut,
+                                (channel_py, re_to_object(&val, py)).into_py(py),
+                                py,
+                            ) {
+                                eprintln!("{e:?}");
+                            };
+                        });
                     }
                     None => {
                         if let Err(e2) = set_fut_result_none(&fut) {
-                            eprintln!("{:?}", e2);
+                            eprintln!("{e2:?}");
                         }
                     }
                 },
@@ -1327,7 +1364,7 @@ impl PubSubContext {
                         &fut,
                         PubSubClosed::new_err("context manager has been exited"),
                     ) {
-                        eprintln!("{:?}", e);
+                        eprintln!("{e:?}");
                     }
                 }
             }

@@ -16,23 +16,6 @@ include = ["Cargo.toml", "README.md", "src/*", "pyproject.toml"]
 name = "zangy"
 crate-type = ["cdylib"]
 
-[package.metadata.maturin]
-requires-python = ">=3.8"
-classifier = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: MacOS",
-    "Operating System :: Microsoft :: Windows",
-    "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python",
-    "Programming Language :: Rust",
-    "Typing :: Typed",
-]
-
 [dependencies]
 pyo3 = { git = "https://github.com/PyO3/pyo3", default-features = false, features = [
     "macros",
