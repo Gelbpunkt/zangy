@@ -1,16 +1,17 @@
-#![feature(once_cell)]
 #![feature(core_intrinsics)]
 #![deny(clippy::pedantic)]
 #![allow(
     clippy::used_underscore_binding,
     clippy::module_name_repetitions,
-    clippy::doc_markdown
+    clippy::doc_markdown,
+    internal_features
 )]
 use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 
 use pyo3::{
     prelude::{pyfunction, pymodule, IntoPy, PyModule, PyObject, PyResult, Python},
-    wrap_pyfunction,
+    types::PyModuleMethods,
+    wrap_pyfunction, Bound,
 };
 use redis::Client;
 
@@ -23,7 +24,7 @@ mod runtime;
 /// Connect to a redis server at `address` and use up to `pool_size`
 /// connections.
 #[pyfunction]
-#[pyo3(text_signature = "(address, pool_size)")]
+#[pyo3(text_signature = "(address, pool_size, pubsub_size)")]
 fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<PyObject> {
     let (fut, res_fut) = asyncio::create_future()?;
 
@@ -49,10 +50,10 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
                 }
                 let mut pubsub_connections = Vec::with_capacity(pubsub_size as usize);
                 for _ in 0..pubsub_size {
-                    let connection = client.get_tokio_connection().await;
+                    let pubsub = client.get_async_pubsub().await;
 
-                    match connection {
-                        Ok(conn) => pubsub_connections.push(conn.into_pubsub()),
+                    match pubsub {
+                        Ok(conn) => pubsub_connections.push(conn),
                         Err(e) => {
                             let _res = asyncio::set_fut_exc(
                                 &fut,
@@ -87,17 +88,23 @@ fn create_pool(address: String, pool_size: u16, pubsub_size: u16) -> PyResult<Py
 }
 
 #[pymodule]
-fn zangy(py: Python, m: &PyModule) -> PyResult<()> {
+fn zangy(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(create_pool, m)?)?;
     m.add_class::<pool::ConnectionPool>()?;
     m.add(
         "ConnectionError",
-        py.get_type::<exceptions::ConnectionError>(),
+        py.get_type_bound::<exceptions::ConnectionError>(),
     )?;
-    m.add("ArgumentError", py.get_type::<exceptions::ArgumentError>())?;
-    m.add("RedisError", py.get_type::<exceptions::RedisError>())?;
-    m.add("PoolEmpty", py.get_type::<exceptions::PoolEmpty>())?;
-    m.add("PubSubClosed", py.get_type::<exceptions::PubSubClosed>())?;
+    m.add(
+        "ArgumentError",
+        py.get_type_bound::<exceptions::ArgumentError>(),
+    )?;
+    m.add("RedisError", py.get_type_bound::<exceptions::RedisError>())?;
+    m.add("PoolEmpty", py.get_type_bound::<exceptions::PoolEmpty>())?;
+    m.add(
+        "PubSubClosed",
+        py.get_type_bound::<exceptions::PubSubClosed>(),
+    )?;
 
     Ok(())
 }

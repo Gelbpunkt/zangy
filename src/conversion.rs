@@ -34,7 +34,7 @@ pub fn re_to_object(v: &Value, py: Python) -> PyObject {
     match v {
         Value::Nil => py.None(),
         Value::Int(i) => i.to_object(py),
-        Value::Data(d) => PyBytes::new(py, d).to_object(py),
+        Value::Data(d) => PyBytes::new_bound(py, d).to_object(py),
         Value::Bulk(b) => b
             .iter()
             .map(|i| re_to_object(i, py))

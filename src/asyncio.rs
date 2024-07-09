@@ -3,11 +3,12 @@ use std::sync::LazyLock;
 use pyo3::{
     intern,
     prelude::{PyErr, PyObject, PyResult, Python},
+    types::PyAnyMethods,
 };
 
 pub static EVENT_LOOP: LazyLock<PyObject> = LazyLock::new(|| {
     Python::with_gil(|py| {
-        let asyncio = py.import("asyncio").unwrap();
+        let asyncio = py.import_bound("asyncio").unwrap();
         let loop_ = asyncio
             .getattr(intern!(py, "get_event_loop"))
             .unwrap()

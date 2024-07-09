@@ -22,13 +22,13 @@ Yes! It beats similar Python libraries by a fair margin. Tokio, no GIL lock and 
 
 Benchmark sources can be found in the `bench` directory.
 
-Benchmarks below done with Redis 7.0.8 and Python 3.11.1, redis-py 4.4.2 and the latest zangy master using a pool with 10 connections:
+Benchmarks below done with Redis 7.2.5 and Python 3.12.4, redis-py 5.0.7 and the latest zangy master using a pool with 10 connections:
 
 | Task                     | redis-py                       | zangy    |
 | ------------------------ | ------------------------------ | -------- |
-| 1.000.000 sequential GET | 2min 34s                       | 1min 44s |
-| 1.000.000 sequential SET | 2min 45s                       | 1min 52s |
-| 1.000.000 parallel SET   | Pool times out after 18min 52s | 17s      |
+| 1.000.000 sequential GET | 1min 27s                       | 54s      |
+| 1.000.000 sequential SET | 1min 25s                       | 58s      |
+| 1.000.000 parallel SET   | Didn't terminate in 45mins     | 9s       |
 
 TLDR: zangy is faster in every regard but crushes in actually concurrent scenarios.
 

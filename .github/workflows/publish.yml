@@ -6,29 +6,30 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Build manylinux Python wheels
         run: |
           docker build -t maturin:latest .
-          docker run --rm -v $(pwd):/io maturin:latest publish --manylinux 2010 --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
+          docker run --rm CARGO_BUILD_TARGET=x86_64-unknown-linux-gnu -v $(pwd):/io maturin:latest publish --compatibility manylinux_2_28 --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
 
   build-windows:
     runs-on: windows-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
+          components: rust-src
           toolchain: nightly
-          override: true
       - name: Install maturin
         run: |
           pip install maturin
       - name: Build Python wheels
         run: |
-          maturin publish --no-sdist --manylinux off --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
+          maturin publish --no-sdist --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
+        env:
+          CARGO_BUILD_TARGET: x86_64-pc-windows-msvc

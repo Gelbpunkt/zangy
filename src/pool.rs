@@ -10,8 +10,6 @@ use std::{
 use futures_util::StreamExt;
 use pyo3::{
     prelude::{pyclass, pymethods, PyObject, PyResult, Python},
-    pyasync::{IterANextOutput, PyIterANextOutput},
-    types::PyType,
     IntoPy, Py, PyAny, PyRef,
 };
 use redis::{
@@ -146,15 +144,15 @@ impl ConnectionPool {
 
     /// Set the value and expiration of a key.
     #[pyo3(text_signature = "($self, key, value, seconds)")]
-    fn set_ex(&self, key: RedisValuePy, value: RedisValuePy, seconds: usize) -> PyResult<PyObject> {
+    fn set_ex(&self, key: RedisValuePy, value: RedisValuePy, seconds: u64) -> PyResult<PyObject> {
         let redis_cmd = Cmd::set_ex(key, value, seconds);
         self.exec_cmd(redis_cmd)
     }
 
     /// Sets multiple keys to their values.
     #[pyo3(text_signature = "($self, items)")]
-    fn set_multiple(&self, items: Vec<(RedisValuePy, RedisValuePy)>) -> PyResult<PyObject> {
-        let redis_cmd = Cmd::set_multiple(&items);
+    fn mset(&self, items: Vec<(RedisValuePy, RedisValuePy)>) -> PyResult<PyObject> {
+        let redis_cmd = Cmd::mset(&items);
         self.exec_cmd(redis_cmd)
     }
 
@@ -164,7 +162,7 @@ impl ConnectionPool {
         &self,
         key: RedisValuePy,
         value: RedisValuePy,
-        milliseconds: usize,
+        milliseconds: u64,
     ) -> PyResult<PyObject> {
         let redis_cmd = Cmd::pset_ex(key, value, milliseconds);
         self.exec_cmd(redis_cmd)
@@ -228,28 +226,28 @@ impl ConnectionPool {
 
     /// Set a key's time to live in seconds.
     #[pyo3(text_signature = "($self, key, seconds)")]
-    fn expire(&self, key: RedisValuePy, seconds: usize) -> PyResult<PyObject> {
+    fn expire(&self, key: RedisValuePy, seconds: i64) -> PyResult<PyObject> {
         let redis_cmd = Cmd::expire(key, seconds);
         self.exec_cmd(redis_cmd)
     }
 
     /// Set the expiration for a key as a UNIX timestamp.
     #[pyo3(text_signature = "($self, key, ts)")]
-    fn expire_at(&self, key: RedisValuePy, ts: usize) -> PyResult<PyObject> {
+    fn expire_at(&self, key: RedisValuePy, ts: i64) -> PyResult<PyObject> {
         let redis_cmd = Cmd::expire_at(key, ts);
         self.exec_cmd(redis_cmd)
     }
 
     /// Set a key's time to live in milliseconds.
     #[pyo3(text_signature = "($self, key, ms)")]
-    fn pexpire(&self, key: RedisValuePy, ms: usize) -> PyResult<PyObject> {
+    fn pexpire(&self, key: RedisValuePy, ms: i64) -> PyResult<PyObject> {
         let redis_cmd = Cmd::pexpire(key, ms);
         self.exec_cmd(redis_cmd)
     }
 
     /// Set the expiration for a key as a UNIX timestamp in milliseconds.
     #[pyo3(text_signature = "($self, key, ts)")]
-    fn pexpire_at(&self, key: RedisValuePy, ts: usize) -> PyResult<PyObject> {
+    fn pexpire_at(&self, key: RedisValuePy, ts: i64) -> PyResult<PyObject> {
         let redis_cmd = Cmd::pexpire_at(key, ts);
         self.exec_cmd(redis_cmd)
     }
@@ -470,7 +468,7 @@ impl ConnectionPool {
     /// Remove and get the first element in a list, or block until one is
     /// available.
     #[pyo3(text_signature = "($self, key, timeout)")]
-    fn blpop(&self, key: RedisValuePy, timeout: usize) -> PyResult<PyObject> {
+    fn blpop(&self, key: RedisValuePy, timeout: f64) -> PyResult<PyObject> {
         let redis_cmd = Cmd::blpop(key, timeout);
         self.query_cmd(redis_cmd)
     }
@@ -478,7 +476,7 @@ impl ConnectionPool {
     /// Remove and get the last element in a list, or block until one is
     /// available.
     #[pyo3(text_signature = "($self, key, timeout)")]
-    fn brpop(&self, key: RedisValuePy, timeout: usize) -> PyResult<PyObject> {
+    fn brpop(&self, key: RedisValuePy, timeout: f64) -> PyResult<PyObject> {
         let redis_cmd = Cmd::brpop(key, timeout);
         self.query_cmd(redis_cmd)
     }
@@ -490,7 +488,7 @@ impl ConnectionPool {
         &self,
         srckey: RedisValuePy,
         dstkey: RedisValuePy,
-        timeout: usize,
+        timeout: f64,
     ) -> PyResult<PyObject> {
         let redis_cmd = Cmd::brpoplpush(srckey, dstkey, timeout);
         self.query_cmd(redis_cmd)
@@ -535,7 +533,7 @@ impl ConnectionPool {
     }
 
     /// Removes and returns the first element of the list stored at key.
-    #[pyo3(text_signature = "($self, key)")]
+    #[pyo3(signature = (key, count = None), text_signature = "($self, key, count = None)")]
     fn lpop(&self, key: RedisValuePy, count: Option<usize>) -> PyResult<PyObject> {
         let redis_cmd = Cmd::lpop(key, count.and_then(NonZeroUsize::new));
         self.query_cmd(redis_cmd)
@@ -587,7 +585,7 @@ impl ConnectionPool {
     }
 
     /// Removes and returns the last element of the list stored at key.
-    #[pyo3(text_signature = "($self, key)")]
+    #[pyo3(signature = (key, count = None), text_signature = "($self, key)")]
     fn rpop(&self, key: RedisValuePy, count: Option<usize>) -> PyResult<PyObject> {
         let redis_cmd = Cmd::rpop(key, count.and_then(NonZeroUsize::new));
         self.query_cmd(redis_cmd)
@@ -1310,12 +1308,8 @@ impl PubSubContext {
         slf
     }
 
-    fn __exit__(
-        &mut self,
-        _exc_type: Option<&PyType>,
-        _exc_value: Option<&PyAny>,
-        _traceback: Option<&PyAny>,
-    ) {
+    #[allow(clippy::needless_pass_by_value)]
+    fn __exit__(&mut self, _ty: PyObject, _value: PyObject, _traceback: PyObject) {
         let conn = self.connection.clone();
         let pool = self.pool.clone();
 
@@ -1329,7 +1323,7 @@ impl PubSubContext {
         slf
     }
 
-    fn __anext__(&self) -> PyResult<PyIterANextOutput> {
+    fn __anext__(&self) -> PyResult<Option<Py<PyAny>>> {
         let (fut, res_fut) = create_future()?;
         let conn = self.connection.clone();
 
@@ -1370,6 +1364,6 @@ impl PubSubContext {
             }
         });
 
-        Ok(IterANextOutput::Yield(res_fut))
+        Ok(Some(res_fut))
     }
 }
