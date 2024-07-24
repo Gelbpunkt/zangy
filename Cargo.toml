@@ -17,21 +17,21 @@ name = "zangy"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { git = "https://github.com/PyO3/pyo3", default-features = false, features = [
-    "macros",
-    "extension-module",
-    "nightly",
-    "num-bigint",
-    "abi3",
-    "abi3-py37",
-] }
 tokio = { version = "1", default-features = false, features = [
     "rt-multi-thread",
 ] }
 redis = { version = "0.25", default-features = false, features = [
-    "tokio-comp"
+    "tokio-comp",
 ] }
 futures-util = { version = "0.3", default-features = false }
+pyo3 = { git = "https://github.com/PyO3/pyo3", default-features = false, features = [
+    "macros",
+    "extension-module",
+    "num-bigint",
+    "abi3",
+    "abi3-py37",
+    "nightly",
+] }
 
 [profile.release]
 codegen-units = 1
